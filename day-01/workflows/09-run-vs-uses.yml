@@ -9,19 +9,57 @@ name: 09 - run vs uses
 on: workflow_dispatch
 
 jobs:
-  demo:
+
+  # --- intro job: basic uses + run demo ---
+  intro:
     runs-on: ubuntu-latest
     steps:
-      # --- uses: pull in a reusable action ---
       - name: Check out the repository code
         uses: actions/checkout@v5        # an action published by GitHub
 
-      # --- run: your own shell commands ---
       - name: Run a shell command
         run: echo "Files in the repo:" && ls -la
 
-      # `with:` passes INPUTS to a `uses:` action
-      - name: Checkout with an input
+  # ============================================================
+  # fetch-depth demo: each job = its own runner = own clean clone
+  # controls how much git HISTORY gets downloaded
+  # ============================================================
+
+  # fetch-depth: 1 (this is actually the DEFAULT even if you omit it)
+  # Only the single latest commit is downloaded. Fastest, smallest.
+  depth-1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with fetch-depth 1 (shallow - default)
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0                 # 0 = full history instead of just the last commit
+          fetch-depth: 1
+      - name: Show commit count
+        run: echo "Commit count:" && git log --oneline | wc -l
+
+  # fetch-depth: 2
+  # Downloads the last 2 commits. Useful when a step needs to
+  # diff/compare the current commit against the previous one.
+  depth-2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with fetch-depth 2
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - name: Show commit count
+        run: echo "Commit count:" && git log --oneline | wc -l
+
+  # fetch-depth: 0
+  # Special value meaning "full history" - not zero commits!
+  # Needed for tools that read full git history/tags,
+  # like `git describe`, changelog generators, or GitVersion.
+  depth-0:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with fetch-depth 0 (full history)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Show commit count
+        run: echo "Commit count:" && git log --oneline | wc -l
