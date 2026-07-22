@@ -1,0 +1,7 @@
+# The build output is produced by `npm run build` and uploaded as a CI
+# artifact (Day 2). It is NEVER committed — that is the whole point of a
+# build step: the pipeline regenerates it from source on every run.
+dist/
+
+# No dependencies today, but this is the habit to keep.
+node_modules/

@@ -1,0 +1,61 @@
+# 21 - Matrix builds: one job definition, many runs
+# "Does my code work on Node 20, 22 AND 24?" Without a matrix you would
+# copy-paste the same job three times. With `strategy.matrix` you write it
+# ONCE and GitHub expands it into one job per value, all in parallel.
+#
+#   strategy:
+#     matrix:
+#       node: [20, 22, 24]      ->  3 jobs, each with a different ${{ matrix.node }}
+#
+# The matrix values become the `matrix` context. Use them anywhere in the
+# job: in `with:`, in `run:`, in `if:`, even in the job `name:`.
+#
+# TIP: always template the job `name:` with the matrix values. Otherwise the
+# Actions tab shows three identical rows and you cannot tell which one broke.
+#
+# LIMIT: a matrix produces at most 256 jobs per workflow run.
+#
+# WHAT TO OBSERVE: three jobs, three different `node --version` outputs,
+# finishing at roughly the same time.
+
+name: 21 - Matrix Basics
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    # Without this, all three rows are called "test" and you cannot tell
+    # which Node version failed.
+    name: Test on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+
+    defaults:
+      run:
+        working-directory: sample-app
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}     # <- the matrix value, per job
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      # `npm ci` is the CI-correct install: it installs EXACTLY what the
+      # lockfile says and fails if package.json and the lockfile disagree.
+      # `npm install` may quietly update the lockfile — fine on your laptop,
+      # wrong in a pipeline that is supposed to be reproducible.
+      - run: npm ci
+
+      - name: Prove which Node we are on
+        run: |
+          echo "matrix.node = ${{ matrix.node }}"
+          node --version
+
+      - run: npm test

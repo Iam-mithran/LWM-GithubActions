@@ -1,0 +1,218 @@
+# 34 - 🚀 DAY 2 CAPSTONE: a real build -> test -> deploy pipeline
+#
+# Everything from today, in one file that a working team would actually ship.
+#
+#   ✅ least-privilege `permissions` (30)     ✅ matrix testing (21-23)
+#   ✅ `concurrency` control (32)             ✅ dependency caching (24)
+#   ✅ multi-job DAG with `needs` (17)        ✅ artifacts v4 (25, 26)
+#   ✅ `if` + status functions (18, 19)       ✅ a REUSABLE WORKFLOW (27, 28)
+#   ✅ job outputs (20)                       ✅ environments + approval (31)
+#   ✅ timeouts (33)
+#
+# 📋 SETUP — copy these into your practice repo before running:
+#     sample-app/                                        (the whole folder)
+#     .github/workflows/34-pipeline-capstone.yml         (this file)
+#     .github/workflows/27-reusable-workflow-callee.yml  (the test job it calls)
+#   Then create the `staging` and `production` environments described in
+#   file 31, with a required reviewer on `production`.
+#
+# THE PIPELINE:
+#
+#   lint ──┐
+#          ├──> build ──> deploy-staging ──> deploy-production ──> summary
+#   test ──┘                                  (needs approval)
+#   (matrix, via
+#    reusable workflow)
+#
+# WHAT TO OBSERVE: lint and test start together; build waits for both;
+# staging deploys automatically; production sits on "Waiting" until you
+# click Approve; summary runs whatever happened.
+
+name: 34 - CI/CD Pipeline (Day 2 Capstone)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege at the top. Individual jobs elevate only if they must.
+permissions:
+  contents: read
+
+# Cancel superseded PR runs; never cancel a run on main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ── 1. Fast feedback ─────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+      - run: npm ci
+      - run: npm run lint
+
+  # ── 2. Matrix tests, delegated to the reusable workflow from file 27 ─────
+  # Note there are no `steps:` here. The whole job body lives in the other
+  # file — this is what reuse buys you.
+  test:
+    name: 🧪 Test
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: ${{ matrix.node }}
+      working-directory: sample-app
+      run-lint: false            # `lint` already covers it — do not pay 3x
+
+  # ── 3. Build once, after everything passes ───────────────────────────────
+  build:
+    name: 📦 Build
+    needs: [lint, test]          # fan-in: waits for BOTH
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Published for downstream jobs to read (file 20).
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+
+    defaults:
+      run:
+        working-directory: sample-app
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+      - name: Stamp a version
+        id: meta
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: npm run build
+
+      # Build ONCE, deploy the SAME bytes everywhere. Rebuilding per
+      # environment means staging and production are not actually the same
+      # artifact — the classic "it worked in staging" bug.
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build-${{ steps.meta.outputs.version }}
+          path: sample-app/dist/       # `uses:` paths are always repo-root relative
+          if-no-files-found: error
+          retention-days: 14
+
+  # ── 4. Staging: automatic, no gate ───────────────────────────────────────
+  deploy-staging:
+    name: 🚀 Deploy to staging
+    needs: build
+    # Never deploy from a pull request — a PR build is not a release.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: staging
+      url: ${{ vars.API_URL || 'https://staging.example.com' }}
+
+    steps:
+      - name: Fetch the exact artifact build produced
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Deploy
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # staging-scoped value
+        run: |
+          echo "Deploying version ${{ needs.build.outputs.version }} to staging"
+          ls -R dist
+          cat dist/build-info.json
+          echo "✅ Staging is live."
+
+  # ── 5. Production: main only, and a human has to say yes ─────────────────
+  deploy-production:
+    name: 🛡️ Deploy to production
+    needs: [build, deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The gate. The required reviewer configured on this environment is what
+    # pauses the run — there is no approval step to write in YAML.
+    environment:
+      name: production
+      url: ${{ vars.API_URL || 'https://api.example.com' }}
+
+    steps:
+      - name: Fetch the SAME artifact staging used
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Deploy
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # production-scoped value
+        run: |
+          echo "Deploying version ${{ needs.build.outputs.version }} to production"
+          cat dist/build-info.json
+          echo "🎉 Production is live."
+
+  # ── 6. Always report ─────────────────────────────────────────────────────
+  summary:
+    name: 📋 Summary
+    needs: [lint, test, build, deploy-staging, deploy-production]
+    if: always()                 # green, red, or skipped — we always report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write the run summary
+        run: |
+          {
+            echo "## Pipeline result"
+            echo ""
+            echo "| Stage | Result |"
+            echo "|-------|--------|"
+            echo "| Lint | ${{ needs.lint.result }} |"
+            echo "| Test | ${{ needs.test.result }} |"
+            echo "| Build | ${{ needs.build.result }} |"
+            echo "| Staging | ${{ needs.deploy-staging.result }} |"
+            echo "| Production | ${{ needs.deploy-production.result }} |"
+            echo ""
+            echo "Version: \`${{ needs.build.outputs.version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail the run if anything upstream failed
+        # `summary` itself succeeded, so without this the workflow could look
+        # green even when build failed. `always()` giveth, and you must
+        # explicitly taketh away.
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ At least one stage failed."
+          exit 1

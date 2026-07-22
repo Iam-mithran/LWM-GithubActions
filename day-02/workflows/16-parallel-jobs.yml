@@ -1,0 +1,48 @@
+# 16 - Jobs run in PARALLEL by default
+# Day 1 used a single job. A workflow can have many, and unless you connect
+# them, GitHub starts them ALL AT THE SAME TIME on separate runners.
+#
+# Two things that surprise everyone the first time:
+#   1. Each job gets its OWN fresh runner. Nothing is shared — not files,
+#      not installed tools, not environment variables set with `export`.
+#   2. Job ORDER IN THE FILE MEANS NOTHING. Writing job-c last does not make
+#      it run last. Only `needs:` (file 17) creates order.
+#
+# WHAT TO OBSERVE: open the run and look at the graph view. Three boxes side
+# by side, all starting at the same second, finishing in a random order.
+
+name: 16 - Parallel Jobs
+
+on: workflow_dispatch
+
+jobs:
+  fast-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finish quickly
+        run: |
+          echo "fast-job started at $(date +%T)"
+          sleep 5
+          echo "fast-job done"
+
+  slow-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Take my time
+        run: |
+          echo "slow-job started at $(date +%T)"
+          sleep 20
+          echo "slow-job done"
+
+  # Proof that runners are isolated: this job writes a file that the other
+  # jobs will never be able to see.
+  isolated-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write a file on THIS runner only
+        run: |
+          echo "secret handshake" > /tmp/note.txt
+          echo "isolated-job wrote /tmp/note.txt on its own machine."
+          echo "fast-job and slow-job cannot read it — different VMs."
+          echo "To pass data between jobs you need OUTPUTS (file 20)"
+          echo "or ARTIFACTS (file 25)."

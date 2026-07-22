@@ -1,0 +1,100 @@
+# 30 - GITHUB_TOKEN and least-privilege `permissions:`
+#
+# Every workflow run gets a TOKEN it never asked for. GitHub mints a fresh
+# `GITHUB_TOKEN` at the start of the run, injects it as `secrets.GITHUB_TOKEN`,
+# and destroys it the moment the run ends. You use it to talk to the GitHub
+# API as the repo itself — no personal access token needed.
+#
+# THE SECURITY PROBLEM: by default that token may be allowed to WRITE. A
+# compromised or careless third-party action running in your job inherits it
+# and can push commits, publish packages, or open pull requests as you. This
+# is not theoretical — it is the exact mechanism behind the supply-chain
+# attacks we dissect on Day 3.
+#
+# THE FIX: declare the narrowest set of scopes the job actually needs.
+#
+#   permissions:
+#     contents: read          # read the repo
+#     issues: write           # ...and nothing else
+#
+# 🔑 THE RULE THAT MAKES THIS SAFE (and surprises people):
+#    Specifying the `permissions:` block AT ALL sets every scope you did not
+#    list to `none`. It is not additive. So an explicit two-line block is
+#    already least-privilege — you do not have to enumerate the other 15.
+#
+# SHORTCUTS:
+#   permissions: read-all     every scope read      (fine for most CI)
+#   permissions: write-all    every scope write     (avoid)
+#   permissions: {}           NO permissions at all (for pure compute jobs)
+#
+# WHERE IT CAN GO: at workflow level (applies to all jobs) or per job (which
+# overrides the workflow level). Best practice: read-only at the top, then
+# elevate the one job that genuinely needs to write.
+#
+# WHERE TO CHECK THE DEFAULT: Settings -> Actions -> General -> "Workflow
+# permissions". Newer repos default to read-only; older ones may still be
+# read/write. Never rely on it — declare it in the file.
+#
+# WHAT TO OBSERVE: expand the "Set up job" section of each job in the log.
+# GitHub prints the exact token scopes it granted. Compare them per job.
+
+name: 30 - Token Permissions
+
+on: workflow_dispatch
+
+# Workflow-level default: read-only for everything. This is the line to put
+# at the top of every workflow you write from now on.
+permissions:
+  contents: read
+
+jobs:
+  inspect-defaults:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the repo through the API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}     # `gh` is preinstalled on runners
+        run: |
+          echo "Reading repo metadata with only contents:read ..."
+          gh api "repos/${{ github.repository }}" --jq '.full_name, .visibility'
+
+      - name: Look at the log above this step
+        run: |
+          echo "Expand 'Set up job' in this log. You will see a block like:"
+          echo "  GITHUB_TOKEN Permissions"
+          echo "    Contents: read"
+          echo "That is the whole permission set this job was given."
+
+  # Overriding at job level. This job can write issues; it still cannot push
+  # code, publish packages, or touch anything else.
+  needs-more:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write            # elevate ONLY the job that needs it
+    steps:
+      - name: Show the elevated scopes
+        run: echo "This job may create issues. It still cannot push a commit."
+
+  # A job that touches nothing but its own runner needs no token at all.
+  zero-permissions:
+    runs-on: ubuntu-latest
+    permissions: {}            # explicitly: nothing
+    steps:
+      - name: Pure computation, no GitHub API
+        run: echo "2 + 2 = 4. No repo access required, so none was granted."
+
+      # Test the restriction with a WRITE, not a read. On a PUBLIC repo the
+      # metadata read above would still succeed even with no scopes at all,
+      # simply because that data is public — which makes it a poor demo.
+      # A write is denied unambiguously.
+      - name: Prove the token cannot write
+        continue-on-error: true    # we EXPECT this to fail — that is the lesson
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Attempting to create an issue with an empty permission set..."
+          gh api -X POST "repos/${{ github.repository }}/issues" \
+            -f title="This issue will never be created" \
+            && echo "❌ Unexpected: the write succeeded." \
+            || echo "✅ Denied (403), exactly as intended. Least privilege works."

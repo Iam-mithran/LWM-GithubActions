@@ -1,0 +1,97 @@
+# 25 - Artifacts: moving FILES from one job to another
+# File 20 moved a small string with outputs. Artifacts move real files —
+# a compiled bundle, a test report, a screenshot, a log.
+#
+# The flow is always the same two actions:
+#   actions/upload-artifact@v4    in the producing job
+#   actions/download-artifact@v4  in the consuming job
+#
+# ⚠️ VERSION: use v4. The v3 artifact actions were FULLY RETIRED on
+#    30 January 2025 and any workflow still calling them now fails outright.
+#    Tutorials older than that are broken — check the version before you copy.
+#
+# WHAT CHANGED IN v4 (and why it breaks old habits):
+#   * Artifacts are IMMUTABLE. Once uploaded, that name is finished. In v3
+#     you could upload repeatedly to the same name and the files merged.
+#     In v4 the SECOND upload to a name FAILS the job. This is the #1 reason
+#     a migrated workflow breaks — see file 26 for the matrix fix.
+#   * Names must be UNIQUE within a run.
+#   * Uploads and downloads are dramatically faster.
+#   * An artifact is visible/downloadable as soon as its job finishes,
+#     instead of only at the end of the whole run.
+#
+# ARTIFACT vs CACHE (say this out loud once and it sticks):
+#   Cache    = "I could rebuild this, I just don't want to wait."
+#   Artifact = "This IS the result. Losing it means losing the work."
+#
+# WHAT TO OBSERVE: after the run, scroll to the bottom of the run summary
+# page — there is an "Artifacts" box you can download in your browser.
+
+name: 25 - Artifacts (upload / download)
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sample-app
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+      # Produces sample-app/dist/ — see sample-app/build.js
+      - name: Build
+        run: npm run build
+
+      - name: Upload the build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build                 # how later jobs and the UI refer to it
+          path: sample-app/dist/          # ⚠️ relative to the REPO ROOT, always.
+                                          # `defaults.run.working-directory` does
+                                          # NOT apply to `uses:` steps (Day 1 rule).
+          retention-days: 7               # default is 90; shorter = cheaper storage
+          if-no-files-found: error        # 'warn' (default) hides a broken build
+
+  test:
+    needs: build                          # must wait — you cannot download from a
+                                          # job that has not finished
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the build output
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build                 # same name as the upload
+          path: downloaded-build          # where to put it on THIS runner
+                                          # (omit `path` and it lands in the CWD)
+
+      - name: Prove the files crossed the machine boundary
+        run: |
+          echo "This is a brand-new runner. It has no repo checked out —"
+          echo "only the files that came from the artifact:"
+          ls -R downloaded-build
+          cat downloaded-build/build-info.json
+
+  # Artifacts are also how you rescue evidence from a FAILING run.
+  publish-logs-on-failure:
+    needs: [build, test]
+    if: failure()                         # file 19 — only when something broke
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir -p logs
+          echo "diagnostics for run ${{ github.run_id }}" > logs/debug.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: failure-logs
+          path: logs/

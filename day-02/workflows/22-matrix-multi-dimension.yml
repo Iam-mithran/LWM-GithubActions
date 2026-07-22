@@ -1,0 +1,81 @@
+# 22 - Multi-dimension matrices, plus `include` and `exclude`
+# Two matrix keys multiply together — it is a CARTESIAN PRODUCT:
+#
+#   os:   [ubuntu-latest, windows-latest, macos-latest]   (3)
+#   node: [20, 22, 24]                                    (3)
+#   ->  3 x 3 = 9 jobs
+#
+# Nine jobs burn nine runners. macOS minutes are billed at 10x on private
+# repos, so trimming the grid is a real cost decision, not a style choice.
+#
+# TRIM IT WITH:
+#   exclude: remove specific combinations from the grid.
+#   include: two different behaviours, and this trips people up —
+#      * If the entry matches an EXISTING combination, it ADDS extra
+#        variables to that job (does not create a new one).
+#      * If it matches nothing, it APPENDS a brand-new job to the matrix,
+#        outside the grid.
+#
+# ORDER MATTERS: `exclude` is applied first, then `include`. So `include`
+# can add back something you just excluded.
+#
+# WHAT TO OBSERVE: count the jobs. 3x3 = 9, minus 2 excluded = 7, plus 1
+# extra included job = 8.
+
+name: 22 - Matrix Include / Exclude
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }} ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}          # the runner itself comes from the matrix
+
+    strategy:
+      fail-fast: false                 # see file 23 — keep all rows running
+
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22, 24]
+
+        # Drop combinations you do not care about.
+        exclude:
+          - os: macos-latest           # macOS is expensive: only keep one row
+            node: 20
+          - os: macos-latest
+            node: 22
+
+        include:
+          # (a) MATCHES an existing combo -> just adds `label` to that job.
+          - os: ubuntu-latest
+            node: 24
+            label: '(primary)'
+
+          # (b) MATCHES NOTHING (18 is not in the `node` list) -> appends a
+          #     brand-new job, outside the grid, for a version we still support.
+          - os: ubuntu-latest
+            node: 18
+            label: '(legacy support)'
+
+    defaults:
+      run:
+        working-directory: sample-app
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+      - name: Report this combination
+        # Windows runners default to PowerShell, Linux/macOS to bash. Keeping
+        # commands to plain `echo` and npm scripts is what makes one matrix
+        # row work on all three operating systems.
+        run: echo "os=${{ matrix.os }} node=${{ matrix.node }} label=${{ matrix.label }}"
+
+      - run: npm test

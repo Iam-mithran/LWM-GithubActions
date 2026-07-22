@@ -1,0 +1,76 @@
+# 19 - Status check functions: success() failure() always() cancelled()
+# These four functions let a job or step react to what happened BEFORE it.
+#
+#   success()    -> true if everything so far succeeded   (THE DEFAULT)
+#   failure()    -> true if anything so far failed
+#   cancelled()  -> true if the run was cancelled by a human or by concurrency
+#   always()     -> true no matter what, including cancellation
+#
+# THE RULE THAT EXPLAINS EVERYTHING:
+#   Every job and step has an INVISIBLE `if: success()` on it. That is why a
+#   job whose `needs` failed turns grey. The moment you write a status check
+#   function yourself, that invisible default is REMOVED and your expression
+#   is the only thing that decides.
+#
+#   needs: build              -> skipped when build fails   (implicit success())
+#   needs: build              -> RUNS when build fails      (you took over)
+#   if: always()
+#
+# WHERE YOU ACTUALLY USE THIS: notifications, uploading logs from a failed
+# run, and cleanup jobs that must tear down infrastructure even when the
+# deploy blew up.
+#
+# WHAT TO OBSERVE: `build` fails on purpose. Look at which of the four
+# reporter jobs are green and which are grey.
+
+name: 19 - Status Functions
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Building..."
+      - name: Fail on purpose
+        run: exit 1        # <- comment this out and re-run to see the mirror image
+
+  on-success:
+    needs: build
+    # No `if:` at all, so the implicit success() applies -> SKIPPED.
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "✅ Everything passed. (You only see this when build is green.)"
+
+  on-failure:
+    needs: build
+    if: failure()          # only when something upstream failed
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "❌ The build failed — this is where you'd send a Slack alert."
+
+  on-cancelled:
+    needs: build
+    if: cancelled()        # only when a human hit Cancel, or concurrency killed it
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🚫 Run was cancelled."
+
+  always-runs:
+    needs: build
+    if: always()           # green, red, or cancelled — this ALWAYS executes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup / reporting
+        run: |
+          echo "🧹 Cleanup always runs."
+          echo "Upstream build result was: ${{ needs.build.result }}"
+
+  # Combining a status function with your own condition is the realistic case:
+  # "alert, but only for the main branch".
+  alert-on-main-failure:
+    needs: build
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Paging the on-call engineer, because main is broken."

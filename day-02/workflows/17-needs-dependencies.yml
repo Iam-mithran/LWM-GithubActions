@@ -1,0 +1,65 @@
+# 17 - `needs`: turning parallel jobs into a pipeline
+# `needs:` says "do not start this job until those jobs have SUCCEEDED".
+# That single keyword is what turns a pile of jobs into a real build ->
+# test -> deploy pipeline.
+#
+# The shape you build with `needs` is a DAG (directed acyclic graph):
+#   - FAN-OUT : many jobs depend on one  (test + lint both need build)
+#   - FAN-IN  : one job depends on many  (deploy needs BOTH test and lint)
+#
+#   build ──┬──> test  ──┐
+#           └──> lint  ──┴──> deploy
+#
+# RULES WORTH MEMORISING:
+#   * A `needs` job that FAILS causes every downstream job to be SKIPPED
+#     (not failed — skipped). Override that with `if: always()` (file 19).
+#   * `needs` accepts one job id or a list.
+#   * You cannot create a cycle. GitHub rejects the workflow before it runs.
+#   * `needs` gives you the `needs` context: needs.<job_id>.result and
+#     needs.<job_id>.outputs.<name> (file 20).
+#
+# WHAT TO OBSERVE: the graph view now draws arrows. deploy sits idle until
+# BOTH test and lint go green.
+
+name: 17 - Needs (Job Dependencies)
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build
+        run: |
+          echo "Building the app..."
+          sleep 5
+
+  # Both of these wait for `build`, then run in parallel with each other.
+  test:
+    needs: build                 # single dependency
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Testing — build already finished before I started."
+
+  lint:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Linting — I run at the same time as test, not after it."
+
+  # Fan-in: waits for BOTH. Note the list syntax.
+  deploy:
+    needs: [test, lint]          # list = wait for every one of them
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show what I waited for
+        run: |
+          echo "Deploying."
+          # `needs.<job>.result` is one of: success, failure, cancelled, skipped
+          echo "test result: ${{ needs.test.result }}"
+          echo "lint result: ${{ needs.lint.result }}"
+
+      # TRY THIS DURING THE DEMO:
+      # Add `exit 1` to the `lint` job above and re-run. Watch `deploy` turn
+      # GREY (skipped), not red. Downstream jobs are skipped, and a skipped
+      # job does NOT fail the workflow on its own.

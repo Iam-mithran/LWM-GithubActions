@@ -1,0 +1,104 @@
+# 27 - A REUSABLE WORKFLOW (the "callee")
+# ⚠️ This file is not meant to be run on its own. It is CALLED by file 28.
+#
+# WHAT MAKES A WORKFLOW REUSABLE: the `workflow_call` trigger. That single
+# event turns a workflow into something other workflows can invoke, the way
+# you would call a function.
+#
+# Copy-pasting the same 20 lines of "checkout, setup node, install, test"
+# into eight repositories is how CI rots. Write it once here, call it from
+# everywhere, fix bugs in one place.
+#
+# A reusable workflow has a TYPED interface — this is its big advantage over
+# copy-paste:
+#   inputs:  typed values (string | number | boolean | choice), with
+#            `required` and `default`
+#   secrets: declared explicitly, so nothing leaks in by accident
+#   outputs: values the caller can read afterwards
+#
+# RULES TO REMEMBER:
+#   * It must live in `.github/workflows/`. Subfolders are NOT allowed
+#     (unlike composite actions, which can live anywhere).
+#   * Nesting depth is capped at 4 (a workflow calling a workflow calling...).
+#   * One caller may reference at most 20 unique reusable workflows.
+#   * `env` set in the caller does NOT reach the callee. Pass it as an input.
+
+name: 27 - Reusable Node Test (callee)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to test against'
+        required: false
+        type: string           # `type` is MANDATORY here (unlike workflow_dispatch)
+        default: '20'
+
+      working-directory:
+        description: 'Folder containing package.json'
+        required: false
+        type: string
+        default: 'sample-app'
+
+      run-lint:
+        description: 'Also run the lint script'
+        required: false
+        type: boolean          # a real boolean, not the string "true"
+        default: true
+
+    secrets:
+      # `required: false` means the caller MAY omit it. If it is required and
+      # the caller forgets, the run fails immediately with a clear error —
+      # much better than a mysterious empty variable at runtime.
+      API_KEY:
+        required: false
+
+    outputs:
+      # Wire an output of an internal JOB up to the workflow's public surface.
+      # Without this block the caller can see nothing.
+      tested-version:
+        description: 'The Node version that actually ran'
+        value: ${{ jobs.run-tests.outputs.node-version }}
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    outputs:
+      node-version: ${{ steps.report.outputs.version }}
+
+    defaults:
+      run:
+        # Inputs work anywhere an expression works — including here.
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        if: inputs.run-lint                 # a genuine boolean — no quotes, no == 'true'
+        run: npm run lint
+
+      - run: npm test
+
+      - name: Use the passed-in secret, if we got one
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          if [ -n "$API_KEY" ]; then
+            echo "Caller supplied API_KEY (masked, length ${#API_KEY})."
+          else
+            echo "No API_KEY passed — the caller left it out."
+          fi
+
+      - name: Report back to the caller
+        id: report
+        run: echo "version=${{ inputs.node-version }}" >> "$GITHUB_OUTPUT"

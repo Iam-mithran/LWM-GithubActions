@@ -1,0 +1,106 @@
+# 24 - Caching: stop re-downloading the same dependencies every run
+# Every job starts on a blank runner, so `npm ci` re-downloads the whole
+# dependency tree every single time. On a real project that is 60-180
+# seconds of pure waiting, on every push, forever.
+#
+# A CACHE saves a directory at the end of a run and restores it at the start
+# of the next one.
+#
+# CACHE vs ARTIFACT — the distinction people get wrong (file 25 is artifacts):
+#   CACHE    -> speed optimisation. Reproducible content (node_modules, ~/.npm).
+#               Deleting it must never break the build, only slow it down.
+#   ARTIFACT -> the OUTPUT you actually care about (a build, a test report).
+#               You download it, or a later job consumes it.
+#
+# HOW THE KEY WORKS — this is the entire concept:
+#   key:          an exact-match lookup. Hit -> restore and SKIP the save.
+#                 Miss -> run the steps, then save under this key at job end.
+#   restore-keys: ordered PREFIXES tried only when `key` misses. A partial
+#                 hit gives you a slightly stale cache, which still beats
+#                 downloading everything.
+#
+#   Caches are IMMUTABLE. You cannot overwrite an existing key — which is
+#   exactly why the key must contain a hash of the lockfile. A key like
+#   "npm-cache" with no hash is the classic bug: it is written once and then
+#   never updates again, no matter how much package.json changes.
+#
+# SCOPE / LIMITS worth knowing:
+#   * 10 GB per repository. Past that, GitHub evicts least-recently-used.
+#   * Any cache untouched for 7 days is deleted.
+#   * A branch can read its own caches AND the default branch's caches.
+#     It CANNOT read a sibling feature branch's caches.
+#   * Never cache anything containing a secret.
+#
+# WHAT TO OBSERVE: run this workflow TWICE. First run says
+# "Cache not found ... " and takes the slow path. Second run says
+# "Cache restored from key: ..." and the slow step is skipped.
+
+name: 24 - Caching
+
+on: workflow_dispatch
+
+jobs:
+  built-in-cache:
+    name: A — built-in caching (the easy way)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      - uses: actions/checkout@v5
+
+      # setup-node has caching BUILT IN. One line, no key management — it
+      # hashes the lockfile for you. This covers 90% of Node projects and is
+      # what you should reach for first.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'                                        # <- that is it
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+  explicit-cache:
+    name: B — actions/cache (full control)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache a custom directory
+        id: toolcache                        # id lets us read `cache-hit` later
+        uses: actions/cache@v4
+        with:
+          # WHAT to cache — one path or a multi-line list.
+          path: ~/.my-tool-cache
+
+          # THE KEY. hashFiles() returns a SHA of the matched files, so the
+          # key changes the instant a dependency changes. That is what makes
+          # the cache self-invalidating.
+          key: ${{ runner.os }}-tools-${{ hashFiles('sample-app/package-lock.json') }}
+
+          # Fallbacks, tried in order, ONLY when `key` misses.
+          # A partial hit restores an older cache that we then top up.
+          restore-keys: |
+            ${{ runner.os }}-tools-
+
+      # `cache-hit` is 'true' ONLY on an exact `key` match. A restore-keys
+      # hit leaves it false — a subtlety that catches people out.
+      - name: Populate the cache (slow path)
+        if: steps.toolcache.outputs.cache-hit != 'true'
+        run: |
+          echo "❌ Cache MISS — doing the expensive work."
+          mkdir -p ~/.my-tool-cache
+          sleep 20                                   # pretend this is a big download
+          echo "built at $(date -u)" > ~/.my-tool-cache/tool.txt
+
+      - name: Use the cache (fast path)
+        if: steps.toolcache.outputs.cache-hit == 'true'
+        run: |
+          echo "✅ Cache HIT — skipped the expensive work entirely."
+          cat ~/.my-tool-cache/tool.txt
+
+      # The cache is SAVED automatically when the job ends successfully.
+      # There is no "save" step to write. If the job fails, nothing is saved.
+      - name: Where to inspect caches
+        run: |
+          echo "Browse and delete caches under: repo -> Actions -> Caches"

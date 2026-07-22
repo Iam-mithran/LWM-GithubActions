@@ -1,0 +1,85 @@
+# 20 - Passing DATA between steps and between jobs
+# Remember from file 16: every job is a different machine. A variable you
+# `export` in job A simply does not exist in job B. To move a small VALUE
+# (a version number, an image tag, a URL) you use OUTPUTS.
+#
+# For a big FILE, outputs are the wrong tool — use artifacts (file 25).
+#
+# THE THREE-STEP CHAIN (this is the whole lesson):
+#
+#   1. A step writes to the $GITHUB_OUTPUT file  ->  echo "key=value" >> "$GITHUB_OUTPUT"
+#   2. The JOB re-exports it under `outputs:`    ->  outputs: {name: "${{ steps.<id>.outputs.key }}"}
+#   3. A downstream job reads it via `needs`     ->  ${{ needs.<job_id>.outputs.name }}
+#
+# Miss step 2 and you get an empty string — the single most common mistake
+# here. Step outputs are visible only INSIDE their own job until you promote
+# them to job outputs.
+#
+# ALSO NOTE:
+#   * The step producing the output MUST have an `id:`.
+#   * `::set-output::` is dead. It was disabled in 2023. Use $GITHUB_OUTPUT.
+#   * Outputs are always STRINGS. "true" is a string, not a boolean.
+#   * Outputs that contain a SECRET are redacted and arrive empty. Do not
+#     try to smuggle credentials between jobs this way.
+
+name: 20 - Job Outputs
+
+on: workflow_dispatch
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+
+    # STEP 2 of the chain: promote step outputs to JOB outputs.
+    outputs:
+      version:   ${{ steps.meta.outputs.version }}
+      timestamp: ${{ steps.meta.outputs.timestamp }}
+      changelog: ${{ steps.notes.outputs.changelog }}
+
+    steps:
+      # STEP 1 of the chain: write to the special $GITHUB_OUTPUT file.
+      - name: Compute some metadata
+        id: meta                       # <- the id is mandatory
+        run: |
+          VERSION="1.4.${{ github.run_number }}"
+          echo "version=$VERSION"            >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%FT%TZ)" >> "$GITHUB_OUTPUT"
+          echo "Computed version $VERSION"
+
+      # MULTI-LINE values need a random delimiter. A bare newline would be
+      # read as the start of the next key and silently truncate your value.
+      - name: A multi-line output
+        id: notes
+        run: |
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "- Added job outputs"
+            echo "- Fixed the build"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Inside the SAME job you read step outputs directly — no `needs`.
+      - name: Read it back in the same job
+        # YAML gotcha: an unquoted value cannot contain ": " — YAML reads it
+        # as a new key and rejects the file. Use a block scalar (|) like this,
+        # or quote the whole string.
+        run: |
+          echo "Same job sees: ${{ steps.meta.outputs.version }}"
+
+  # STEP 3 of the chain: a different machine, reading the value over `needs`.
+  consume:
+    needs: produce                     # you cannot use `needs.produce` without this
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the upstream job's outputs
+        run: |
+          echo "Version   : ${{ needs.produce.outputs.version }}"
+          echo "Built at  : ${{ needs.produce.outputs.timestamp }}"
+          echo "Changelog :"
+          echo "${{ needs.produce.outputs.changelog }}"
+
+      # A very common real-world pattern: decide something in job A, then
+      # gate job B on it. (Remember: the value is a STRING.)
+      - name: Gate on an output value
+        if: needs.produce.outputs.version != ''
+        run: echo "We have a version, so a deploy could proceed."

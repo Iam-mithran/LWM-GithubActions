@@ -1,0 +1,108 @@
+# 33 - timeout-minutes and continue-on-error: keeping pipelines cheap and honest
+#
+# TIMEOUTS — why you need them even though "it always finishes in 2 minutes":
+#   A job's DEFAULT timeout is 360 minutes. Six hours. A hung test, a command
+#   silently waiting for input, or a network call with no timeout will happily
+#   burn all six hours of billed runner time before anyone notices. Setting
+#   `timeout-minutes` is the cheapest insurance in CI.
+#
+#     timeout-minutes  on a JOB  -> cancels the whole job
+#     timeout-minutes  on a STEP -> cancels just that step (and fails the job)
+#
+#   Set it to roughly 2-3x the normal runtime. Too tight and you cancel your
+#   own healthy builds on a slow day.
+#
+# CONTINUE-ON-ERROR — "this step may fail and I do not want to hear about it":
+#   Use it for genuinely optional work: an experimental matrix row, uploading
+#   coverage to a flaky third-party service, a nice-to-have lint.
+#   Do NOT use it to silence a test that keeps failing. That is how a green
+#   pipeline stops meaning anything.
+#
+# 🔑 OUTCOME vs CONCLUSION — the distinction that makes this usable:
+#     steps.<id>.outcome    = what ACTUALLY happened  (failure)
+#     steps.<id>.conclusion = what was REPORTED after continue-on-error (success)
+#   To react to a real failure you must check `outcome`. Checking `conclusion`
+#   silently never matches, and people lose an afternoon to it.
+#
+# WHAT TO OBSERVE: the job goes GREEN overall, but individual steps show a
+# red-with-arrow icon, and the timeout job is cancelled after 1 minute.
+
+name: 33 - Timeouts & continue-on-error
+
+on: workflow_dispatch
+
+jobs:
+  with-timeouts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5            # ← put this on EVERY job you write
+
+    steps:
+      - name: Normal work
+        timeout-minutes: 2        # a tighter limit for one specific step
+        run: |
+          echo "Finishes well within the limit."
+          sleep 5
+
+      - name: A step that hangs
+        timeout-minutes: 1        # cancelled after 60s instead of running for hours
+        continue-on-error: true   # ...and we choose not to fail the job over it
+        run: |
+          echo "Pretending to hang — will be cancelled at the 1 minute mark."
+          sleep 300
+
+      - name: We still get here
+        run: echo "The hung step was killed and skipped over."
+
+  optional-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Required step
+        run: echo "If this fails, the job must fail."
+
+      - name: Optional third-party upload
+        id: coverage
+        continue-on-error: true
+        run: |
+          echo "Uploading coverage to a service that is down..."
+          exit 1
+
+      - name: Inspect what really happened
+        run: |
+          echo "outcome    = ${{ steps.coverage.outcome }}"      # failure
+          echo "conclusion = ${{ steps.coverage.conclusion }}"   # success
+
+      - name: React to the REAL result
+        if: steps.coverage.outcome == 'failure'    # ✅ outcome, not conclusion
+        run: echo "⚠️ Coverage upload failed. Logging it, but not blocking the merge."
+
+  # continue-on-error also works at JOB level, and pairs naturally with a
+  # matrix: let the experimental row fail without turning the run red.
+  experimental-matrix:
+    name: Node ${{ matrix.node }} ${{ matrix.experimental && '(experimental)' || '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Job-level: this job's failure does not fail the workflow.
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+        experimental: [false]
+        include:
+          - node: '23'            # a non-LTS version we are only trialling
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+      - run: npm ci
+        working-directory: sample-app
+      - run: npm test
+        working-directory: sample-app

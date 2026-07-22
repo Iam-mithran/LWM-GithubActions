@@ -22,11 +22,9 @@ At the end, one **combined capstone** brings all the pieces together into a real
 6. [Runners — the `runs-on` keyword](#5--runners--the-runs-on-keyword)
 7. [Steps: `run` vs `uses`](#6--steps-run-vs-uses)
 8. [Marketplace actions: checkout & setup-node](#7--marketplace-actions-checkout--setup-node)
-9. [Environment variables & contexts](#8--environment-variables--contexts)
-10. [Secrets](#9--secrets)
-11. [🚀 Hands-on capstone: your first CI pipeline](#10--hands-on-capstone-your-first-ci-pipeline)
-12. [Day 1 cheat sheet](#-day-1-cheat-sheet)
-13. [Reference links](#-reference-links)
+9. [What's next — Day 2 starts here](#8--whats-next--day-2-starts-here)
+10. [Day 1 cheat sheet](#-day-1-cheat-sheet)
+11. [Reference links](#-reference-links)
 
 ---
 
@@ -59,7 +57,9 @@ flowchart LR
 4. Scroll down → **Commit changes** (commit directly to `main` for practice).
 5. Click the **Actions** tab to watch it run.
 
-> 💡 **Where files live in this course:** all copy-paste YAML files are in [`day-01/workflows/`](workflows/). The sample app for the capstone is in [`day-01/sample-app/`](sample-app/).
+> 💡 **Where files live in this course:** Day 1's copy-paste YAML files are in [`day-01/workflows/`](workflows/), numbered `01`–`11`. Numbering continues across the whole course, so Day 2 picks up at `12` in [`day-02/workflows/`](../day-02/workflows/). The sample app used from Day 1 onwards is in [`sample-app/`](../sample-app/) at the repo root.
+>
+> 📦 **Everything is prebuilt — nothing to generate.** Clone or download this repo (link in the video description) and you get every workflow file plus a complete, ready-to-run sample app, `package-lock.json` included. There is no setup step, no `npm install` on your machine, and no lockfile to create. Copy, commit, watch it run.
 
 ---
 
@@ -195,8 +195,10 @@ Runs on every push. The classic "test my code as soon as it changes" trigger.
 Runs when a PR is opened or updated. This is how you gate code **before** it merges. Try it: create a new branch in the browser, edit a file, and open a PR — watch the workflow run on the PR.
 
 ### 4.3 Filters: branches & paths — [`04-on-branches-paths.yml`](workflows/04-on-branches-paths.yml)
-Only run when it matters — e.g., only on `main`, or only when files under `src/` change. Saves minutes and noise.
+Only run when it matters — e.g., only on `main`, or only when files under `sample-app/` change. Saves minutes and noise.
 
+> ⚠️ **`paths` are matched from the repo root.** Since our app sits in `sample-app/`, the filter has to say `sample-app/**`. Writing `src/**` would match nothing and the workflow would silently never run — a genuinely confusing bug to chase.
+>
 > ⚠️ Use **either** `branches` **or** `branches-ignore`, never both. Same for `paths`/`paths-ignore`.
 
 ### 4.4 `workflow_dispatch` — [`05-on-workflow-dispatch.yml`](workflows/05-on-workflow-dispatch.yml)
@@ -291,124 +293,37 @@ Installs a chosen Node.js version and puts it on the PATH. There's an equivalent
   with:
     node-version: '20'
     cache: 'npm'                 # caching = Day 2 topic, but this is how you turn it on
+    cache-dependency-path: 'sample-app/package-lock.json'   # WHERE the lockfile lives
 ```
 
+> ⚠️ **`cache: 'npm'` needs a lockfile, and it needs to know where it is.** By default `setup-node` only looks in your repo **root**. Our app lives in `sample-app/`, so we point at it with `cache-dependency-path`. Miss this and the step fails with *"Dependencies lock file is not found"* — even though the file is sitting right there in the repo.
+>
+> The path is always relative to the **repo root** (not to any `working-directory`), and the file must exist **after checkout** — which is why `actions/checkout` always runs first.
+>
+> Good news: [`sample-app/`](../sample-app/) already ships a ready-made `package-lock.json`, so you never have to generate one.
+>
 > **Version pinning (`@v5`, `@v6`):** the `@` picks which version of the action to run. Using the **major tag** (`@v5`) gets the latest v5.x. For maximum security, teams pin to a **full commit SHA** — we cover *why* and *how* in depth on **Day 3 (supply-chain security)**.
 >
 > 📖 [`actions/checkout`](https://github.com/actions/checkout) · [`actions/setup-node`](https://github.com/actions/setup-node) · [Finding and customizing actions](https://docs.github.com/en/actions/learn-github-actions/finding-and-customizing-actions).
 
 ---
 
-## 8 — Environment variables & contexts
+## 8 — What's next — Day 2 starts here
 
-### 8.1 `env` — custom variables with three scopes — [`12-env-scopes.yml`](workflows/12-env-scopes.yml)
+That is Day 1. You can now read and write workflow YAML, trigger it on any event, pick a runner, tell `run` from `uses`, and pull your code and a Node toolchain onto a runner with Marketplace actions.
 
-Define variables with `env:` at **workflow**, **job**, or **step** level. Inner scopes override outer ones: **step > job > workflow**. Read them as `$NAME` in shell, or `${{ env.NAME }}` in expressions.
+**Day 2 opens by finishing the foundations**, using the same practice repo and the same numbering — the files simply continue in [`day-02/workflows/`](../day-02/workflows/):
 
-```mermaid
-flowchart TD
-    W["Workflow env<br/>(all jobs)"] --> J["Job env<br/>(overrides workflow)"]
-    J --> S["Step env<br/>(overrides job)"]
-    S --> Win["🏆 Step value wins"]
-```
+| # | Topic | File |
+|---|-------|------|
+| 12 | **Environment variables** and their three scopes (workflow / job / step) | [`12-env-scopes.yml`](../day-02/workflows/12-env-scopes.yml) |
+| 13 | **Contexts & expressions** — `github`, `runner`, `env`, and the `toJSON` debugging trick | [`13-contexts.yml`](../day-02/workflows/13-contexts.yml) |
+| 14 | **Secrets** — storing them, masking, and the fork-PR rule | [`14-secrets.yml`](../day-02/workflows/14-secrets.yml) |
+| 15 | 🚀 **The foundations capstone** — a complete Node.js CI pipeline | [`15-node-ci-combined.yml`](../day-02/workflows/15-node-ci-combined.yml) |
 
-### 8.2 Contexts & expressions — [`13-contexts.yml`](workflows/13-contexts.yml)
+Then Day 2 moves into real pipeline engineering: multi-job DAGs with `needs`, `if` and status functions, job outputs, **matrix** builds, **caching**, **artifacts v4**, **reusable workflows** and **composite actions**, least-privilege `GITHUB_TOKEN` permissions, **environments with approval gates**, and `concurrency`.
 
-**Contexts** are read-only objects packed with info about the run, accessed with the `${{ ... }}` syntax. The essentials for Day 1:
-
-| Context | Gives you | Example |
-|---------|-----------|---------|
-| `github` | repo, event, actor, ref, sha, run number | `${{ github.repository }}` |
-| `runner` | OS, arch, temp dirs | `${{ runner.os }}` |
-| `env` | your custom variables | `${{ env.APP_NAME }}` |
-| `secrets` | your stored secrets | `${{ secrets.MY_API_KEY }}` |
-
-💡 **Pro debugging tip** (in the example): dump the entire context as JSON to discover everything available:
-```yaml
-- env:
-    GITHUB_CONTEXT: ${{ toJSON(github) }}
-  run: echo "$GITHUB_CONTEXT"
-```
-
-> 📖 [Contexts reference](https://docs.github.com/en/actions/learn-github-actions/contexts) · [Expressions](https://docs.github.com/en/actions/learn-github-actions/expressions) · [Store information in variables](https://docs.github.com/en/actions/learn-github-actions/variables).
-
----
-
-## 9 — Secrets
-
-**Never hard-code passwords, tokens, or API keys in a workflow file** — the file lives in your repo history for everyone to see. Instead, store them as **secrets**.
-
-### ▶️ Example — [`14-secrets.yml`](workflows/14-secrets.yml)
-
-**Create a secret first:**
-`Settings → Secrets and variables → Actions → New repository secret` → name it `MY_API_KEY`, give it any value.
-
-Then read it with the `secrets` context:
-```yaml
-env:
-  API_KEY: ${{ secrets.MY_API_KEY }}
-```
-
-**Golden rules of secrets:**
-- ✅ GitHub **automatically masks** secret values in logs (they appear as `***`).
-- ✅ Pass secrets through `env:` and consume them in a command — don't `echo` them.
-- ⚠️ Secrets are **not** sent to workflows triggered by pull requests from **forks** (a security protection).
-- 🔑 There is also an automatic secret called `GITHUB_TOKEN` for talking to the GitHub API — we dig into its permissions on **Day 2**.
-
-```mermaid
-flowchart LR
-    Store["🔐 Repo Settings<br/>store MY_API_KEY"] --> Ref["Workflow reads<br/>secrets.MY_API_KEY"]
-    Ref --> Env["Inject via env:"]
-    Env --> Use["Use in a command<br/>(masked in logs)"]
-```
-
-> 📖 [Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
-
----
-
-## 10 — 🚀 Hands-on capstone: your first CI pipeline
-
-Now we combine **everything**: triggers, a runner, checkout, setup-node, env, contexts, and a real build → lint → test flow.
-
-### Step 1 — Add the sample app to your repo (in the browser)
-
-Create these three files (copy from [`day-01/sample-app/`](sample-app/)). Put them at the **root** of your repo:
-
-| File | Purpose |
-|------|---------|
-| `package.json` | Defines `lint` and `test` scripts (zero dependencies). |
-| `src/math.js` | A tiny module (`add`, `multiply`). |
-| `test/math.test.js` | Tests using Node's built-in test runner. |
-
-> These use **no external dependencies**, so `npm install` is instant and the demo never breaks on a missing package.
-
-### Step 2 — Add the CI workflow
-
-Create `.github/workflows/15-node-ci-combined.yml` from [`15-node-ci-combined.yml`](workflows/15-node-ci-combined.yml).
-
-### Step 3 — Watch it run
-
-Committing those files to `main` is a `push` → the workflow triggers automatically. Open **Actions** and watch:
-
-```mermaid
-flowchart LR
-    C["📥 Checkout"] --> N["🟢 Setup Node"] --> I["📦 Install"] --> L["🔍 Lint"] --> T["🧪 Test"] --> S["✅ Summary"]
-```
-
-### Step 4 — Break it on purpose (learn to read failures)
-
-1. Edit `test/math.test.js` and change `assert.equal(add(2, 3), 5)` to `6`.
-2. Commit. The **Test** step turns red ❌.
-3. Open the failed step, read the assertion error, fix it back to `5`, commit again → green ✅.
-
-### Step 5 — Add a status badge (optional flex)
-
-Put this near the top of your repo's `README.md` (replace `USER/REPO`):
-```markdown
-![CI](https://github.com/USER/REPO/actions/workflows/15-node-ci-combined.yml/badge.svg)
-```
-
-🎉 **You now have a working CI pipeline** that tests every push and PR automatically.
+👉 **Continue to [Day 2 — Real Pipelines](../day-02/README.md).**
 
 ---
 
@@ -450,8 +365,8 @@ jobs:                        # WHAT runs (parallel by default)
 | Install Node | `uses: actions/setup-node@v6` |
 | Run a shell command | `run:` |
 | Pass input to an action | `with:` |
-| Store a password/token | Repo secret + `${{ secrets.NAME }}` |
-| Read run info | Contexts: `${{ github.* }}`, `${{ runner.* }}` |
+| Store a password/token | Repo secret + `${{ secrets.NAME }}` *(Day 2)* |
+| Read run info | Contexts: `${{ github.* }}`, `${{ runner.* }}` *(Day 2)* |
 
 ---
 
@@ -477,13 +392,10 @@ jobs:                        # WHAT runs (parallel by default)
 
 ---
 
-## ⏭️ What's next — Day 2 (Intermediate)
+## ⏭️ Continue to Day 2
 
-Tomorrow we turn this single job into a **real multi-stage pipeline**:
-- Connecting jobs with `needs`, running things conditionally with `if`, and passing data with **job outputs**
-- **Matrix builds** — test across many Node versions and OSes at once
-- **Caching** dependencies and sharing files between jobs with **artifacts (v4)**
-- **Reusable workflows** vs **composite actions** — stop copy-pasting YAML
-- **Environments**, `GITHUB_TOKEN` permissions, and **concurrency** control
+Day 2 finishes the foundations (env, contexts, secrets and the CI capstone — see [section 8](#8--whats-next--day-2-starts-here)) and then turns this single job into a **real multi-stage pipeline**.
 
-See you on Day 2! 🚀
+👉 **[Day 2 — Real Pipelines: Jobs, Matrix, Reuse & Deployment Gates](../day-02/README.md)**
+
+See you there! 🚀

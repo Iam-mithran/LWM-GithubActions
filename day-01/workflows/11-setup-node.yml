@@ -20,6 +20,22 @@ jobs:
           node-version: '20'
           cache: 'npm'                   # cache npm downloads to speed up future runs
 
+          # WHERE is the lockfile? `cache` needs one to build its cache key.
+          # By default setup-node only looks for package-lock.json in the repo ROOT.
+          # Our app lives in sample-app/, so we MUST point at it explicitly:
+          cache-dependency-path: 'sample-app/package-lock.json'
+          #
+          # Other common values:
+          #   cache-dependency-path: 'package-lock.json'      # app at the repo root
+          #   cache-dependency-path: '**/package-lock.json'   # monorepo: every lockfile
+          #   cache-dependency-path: |                        # or list several
+          #     frontend/package-lock.json
+          #     backend/package-lock.json
+          #
+          # NOTE: the path is relative to the repo ROOT, and the file must exist
+          # AFTER checkout — that's why actions/checkout runs before this step.
+          # No lockfile at that path => "Dependencies lock file is not found".
+
       - name: Confirm the versions
         run: |
           node --version

@@ -1,0 +1,87 @@
+# 32 - Concurrency: cancel stale runs, and never deploy twice at once
+#
+# THE TWO PROBLEMS IT SOLVES — they pull in opposite directions:
+#
+#   1. WASTE. You push three commits to a PR in five minutes. Three full CI
+#      runs start. The first two are already irrelevant. You want them KILLED.
+#         -> cancel-in-progress: true
+#
+#   2. RACE CONDITIONS. Two merges to main trigger two deploys that run at
+#      the same time and fight over the same server. You want them QUEUED.
+#         -> cancel-in-progress: false
+#
+# HOW IT WORKS: every run is put into a named GROUP. Only ONE run per group
+# executes at a time. What happens to the next one depends on the flag.
+#
+# ⚠️ THE QUEUE IS ONE DEEP. Per group there can be one running and one
+#    pending run. Queue a third and it REPLACES the pending one, which is
+#    cancelled. Concurrency is not a durable job queue — do not use it as one.
+#
+# CHOOSING A GROUP KEY (the whole design decision):
+#   ${{ github.workflow }}-${{ github.ref }}   per workflow per branch  (typical CI)
+#   ${{ github.workflow }}                     one run globally         (deploys)
+#   deploy-${{ inputs.environment }}           one per target
+#
+#   Leave `github.ref` OUT of a deploy group on purpose — you want all
+#   deploys serialised, not one per branch.
+#
+# WHAT TO OBSERVE: run this from the button, then IMMEDIATELY run it again.
+# The first run flips to "Cancelled" the moment the second starts.
+
+name: 32 - Concurrency
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+# ── Workflow-level: the standard "cancel stale CI" pattern ───────────────
+concurrency:
+  # One group per workflow, per branch/PR. Pushing again to the SAME branch
+  # cancels the previous run; other branches are unaffected because their
+  # github.ref differs.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  slow-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Long-running work
+        run: |
+          echo "Run #${{ github.run_number }} on ${{ github.ref_name }}"
+          echo "Push again now — watch this run get cancelled mid-step."
+          sleep 90
+
+  # ── Job-level concurrency: a different group for the risky job ──────────
+  # Jobs can have their OWN concurrency, which overrides the workflow's.
+  # This is how you cancel stale tests while still serialising deploys.
+  deploy:
+    needs: slow-ci
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: production-deploy      # no github.ref — ALL branches share this
+                                    # group, so deploys never overlap
+      cancel-in-progress: false     # 🔑 QUEUE, do not kill. Cancelling a
+                                    # half-finished deploy leaves production
+                                    # in an unknown state — far worse than
+                                    # waiting 90 seconds.
+
+    steps:
+      - name: Deploy safely
+        run: |
+          echo "Only one of these can be running across the whole repo."
+          sleep 30
+          echo "Deploy finished cleanly."
+
+  # A common refinement: only cancel on pull requests, never on main.
+  # Expressions work inside the concurrency block too.
+  smart-cancellation:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: smart-${{ github.ref }}
+      # true on a PR, false on main -> stale PR builds die, main builds finish.
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - run: echo "Cancellable here, protected on main."

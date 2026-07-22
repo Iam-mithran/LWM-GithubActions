@@ -13,8 +13,11 @@ on:
       - main
       - 'release/**'        # any branch starting with release/  (** = wildcard)
     paths:
-      - 'src/**'            # only run if files under src/ changed
-      - '**.js'             # ...or any JavaScript file
+      - 'sample-app/**'     # only run if something in the app folder changed
+      - '**.js'             # ...or any JavaScript file, anywhere in the repo
+      # NOTE: paths are matched from the REPO ROOT. Our app lives in
+      # sample-app/, so a filter of 'src/**' would never match anything
+      # and the workflow would silently never run.
       # To instead run on everything EXCEPT docs, delete `paths:` above and use:
       #   paths-ignore:
       #     - '**.md'

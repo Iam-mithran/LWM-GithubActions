@@ -1,0 +1,78 @@
+# A COMPOSITE ACTION — bundle several STEPS into one reusable step.
+#
+# 📁 WHERE THIS FILE GOES IN YOUR PRACTICE REPO:
+#      .github/actions/node-ci-setup/action.yml
+#    The folder name is what you `uses:`. The file MUST be named
+#    `action.yml` (or `action.yaml`) — no other name is recognised.
+#    Unlike reusable workflows, this can live in ANY folder.
+#
+# WHAT IT IS: "checkout + setup-node + install" is three steps you retype in
+# every single job. A composite action collapses them into one:
+#
+#      - uses: ./.github/actions/node-ci-setup
+#        with:
+#          node-version: '22'
+#
+# COMPOSITE ACTION vs REUSABLE WORKFLOW — the decision in one line:
+#   Composite action  = reuse STEPS inside somebody else's job.
+#   Reusable workflow = reuse WHOLE JOBS, including runners and permissions.
+#
+# THE RULES THAT BITE:
+#   * Every `run:` step MUST declare `shell:`. There is no default here, and
+#     omitting it is the #1 error: "Required property is missing: shell".
+#   * `runs.using: composite` — not `node20`, that is for JavaScript actions.
+#   * Inputs are `${{ inputs.x }}`. There is NO `secrets` context inside a
+#     composite action — pass secrets in as inputs.
+#   * 🔑 THE CHICKEN-AND-EGG RULE: a LOCAL action (`uses: ./...`) is just a
+#     file in your repo, so it does not exist on the runner until the repo
+#     has been checked out. The CALLING WORKFLOW must run actions/checkout
+#     BEFORE it can use this action. That is why there is no checkout step
+#     below — by the time this action starts, the code is already there.
+#     Skip it in the caller and you get:
+#         "Can't find 'action.yml' under '.../.github/actions/node-ci-setup'"
+
+name: 'Node CI Setup'
+description: 'Installs Node, restores the npm cache, and installs dependencies.'
+
+# Optional but nice: shows up in the Actions UI.
+branding:
+  icon: 'package'
+  color: 'green'
+
+inputs:
+  node-version:
+    description: 'Node.js version to install'
+    required: false
+    default: '20'
+
+  working-directory:
+    description: 'Folder containing package.json'
+    required: false
+    default: 'sample-app'
+
+outputs:
+  installed-version:
+    description: 'The Node version that ended up on PATH'
+    # Composite outputs point at a step INSIDE this action.
+    value: ${{ steps.version.outputs.node }}
+
+runs:
+  using: composite            # <- this is what makes it a composite action
+  steps:
+    # NOTE: no actions/checkout here — see the chicken-and-egg rule above.
+    # A composite action CAN call other actions with `uses:`.
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Install dependencies
+      shell: bash                                   # ← MANDATORY on every run step
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci
+
+    - name: Capture the installed version
+      id: version
+      shell: bash
+      run: echo "node=$(node --version)" >> "$GITHUB_OUTPUT"

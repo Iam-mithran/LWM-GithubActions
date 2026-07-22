@@ -142,6 +142,18 @@ By the end of the course you will be able to:
 
 ---
 
-## What's Next
+## Build Status
 
-This document is the master blueprint. **Next, we'll create the detailed Day 1 README / teaching script** from this outline — expanding each Day 1 topic into narration beats, on-screen commands, the exact starter repo and workflow YAML, and the step-by-step hands-on build — so it's ready to record.
+This document is the master blueprint. Each day is expanded into a teaching script, runnable workflow files, and YouTube metadata.
+
+| Day | Teaching script | Workflow files | YouTube metadata | Status |
+|-----|-----------------|----------------|------------------|--------|
+| Day 1 | [`day-01/README.md`](day-01/README.md) | [`day-01/workflows/`](day-01/workflows/) `01`–`11` | [`youtube/day01_youtube.md`](youtube/day01_youtube.md) | ✅ Recorded |
+| Day 2 | [`day-02/README.md`](day-02/README.md) | [`day-02/workflows/`](day-02/workflows/) `12`–`34` + [`day-02/actions/`](day-02/actions/) | [`youtube/day02_youtube.md`](youtube/day02_youtube.md) | ✅ Ready to record |
+| Day 3 | — | — | — | 📝 Outline only |
+
+**Workflow files are numbered continuously across the whole course**, not per day — the number is the teaching order. Day 3 will start at `35`.
+
+> ⚠️ **Day 1 / Day 2 boundary changed during recording.** The Day 1 video ran long and stopped after `actions/setup-node`. Day 1 topic **7 (variables, contexts, secrets)** and the **Day 1 hands-on capstone** were moved to the start of Day 2, and their files (`12`–`15`) now live in [`day-02/workflows/`](day-02/workflows/). The topic lists below are the original blueprint; the day READMEs are the source of truth for what is actually taught where.
+
+**Next:** expand Day 3 into a teaching script and workflow files, following the same pattern.

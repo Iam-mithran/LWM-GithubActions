@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "lint": "node --check src/math.js && echo \"Lint OK: no syntax errors\"",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node build.js"
   },
   "license": "MIT"
 }

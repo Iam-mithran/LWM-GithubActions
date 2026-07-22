@@ -1,0 +1,121 @@
+# 26 - Artifacts from a MATRIX (the v4 gotcha) and how to merge them
+#
+# THE PROBLEM
+# Put an upload step inside a matrix and every row runs the same code:
+#
+#     - uses: actions/upload-artifact@v4
+#       with:
+#         name: test-results          # <-- identical in all 3 rows
+#
+# Row 1 uploads fine. Rows 2 and 3 FAIL with:
+#     "Conflict: an artifact with this name already exists on the workflow run"
+#
+# Because v4 artifacts are IMMUTABLE, a name can be written exactly once per
+# run. Under v3 the files quietly merged, so this is the single most common
+# breakage when migrating an old workflow.
+#
+# THE FIX (two halves)
+#   1. UPLOAD under a unique name per row — include the matrix values.
+#   2. Optionally MERGE them back into one downloadable bundle afterwards.
+#
+# TWO WAYS TO MERGE — pick one:
+#   a) actions/upload-artifact/merge@v4   -> makes a NEW combined artifact in
+#                                            the UI. Best when a human will
+#                                            download one zip.
+#   b) download-artifact with `pattern:` + `merge-multiple: true`
+#                                         -> pulls them all onto one runner.
+#                                            Best when a later JOB needs them.
+#
+# WHAT TO OBSERVE: the run summary lists report-node-20, report-node-22 and
+# report-node-24 — and then a single `all-test-reports` after the merge job.
+
+name: 26 - Matrix Artifacts & Merge
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+
+    defaults:
+      run:
+        working-directory: sample-app
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+
+      - run: npm ci
+
+      - name: Run tests and save a report
+        run: |
+          # Without pipefail, the exit code of a pipeline is `tee`'s (always 0)
+          # and a failing test would be reported as a PASS. Easy to miss.
+          set -o pipefail
+          mkdir -p reports
+          npm test 2>&1 | tee "reports/results-node-${{ matrix.node }}.txt"
+
+      - name: Upload this row's report
+        uses: actions/upload-artifact@v4
+        with:
+          # ✅ THE FIX: the matrix value makes the name unique per row.
+          #    Include EVERY matrix dimension you vary, or two rows collide.
+          #    A 2-D os x node matrix needs BOTH: report-${{ matrix.os }}-${{ matrix.node }}
+          name: report-node-${{ matrix.node }}
+          path: sample-app/reports/
+          retention-days: 5
+
+  # ── Option (a): combine into one artifact for a human to download ────────
+  merge-reports:
+    needs: test
+    if: always()            # still merge the reports when one row failed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge every report-* artifact into one
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: all-test-reports        # the new, combined artifact
+          pattern: report-*             # glob over the existing artifact NAMES
+          delete-merged: true           # tidy up the three originals
+                                        # (leave false if a later job still
+                                        #  needs them individually)
+
+  # ── Option (b): pull them all onto one runner for a later job to process ─
+  summarise:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all matrix reports at once
+        uses: actions/download-artifact@v4
+        with:
+          pattern: report-*             # no `name:` — a pattern instead
+          merge-multiple: true          # flatten into ONE folder.
+                                        # false (default) = one subfolder per
+                                        # artifact name, which is usually what
+                                        # you want if filenames could collide.
+          path: all-reports
+
+      - name: Build a job summary from them
+        run: |
+          ls -R all-reports
+          # $GITHUB_STEP_SUMMARY renders markdown onto the run's summary page —
+          # a genuinely underused feature. Great for surfacing test results
+          # without making anyone open the logs.
+          {
+            echo "## Test reports collected"
+            echo ""
+            for f in all-reports/*.txt; do
+              echo "- \`$(basename "$f")\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,59 @@
+# 23 - Controlling matrix behaviour: fail-fast and max-parallel
+#
+# fail-fast (default: TRUE)
+#   The moment ONE matrix job fails, GitHub CANCELS every other job in that
+#   matrix. Great for saving minutes, terrible for debugging — you learn
+#   that Node 20 broke but never find out whether 22 and 24 broke too.
+#
+#   Set `fail-fast: false` while diagnosing a flaky test. Leave it TRUE on
+#   busy repos where you just want fast feedback.
+#
+# max-parallel
+#   Caps how many matrix jobs run at the same time. Use it when the jobs
+#   share a limited resource — one test database, an API with rate limits,
+#   or a small pool of self-hosted runners.
+#
+# WHAT TO OBSERVE: run it as-is. The `node: 18` row fails on purpose. With
+# fail-fast: false all four rows still finish, and you can see that ONLY 18
+# is red. Then flip fail-fast to true, re-run, and watch the others get
+# cancelled mid-flight.
+
+name: 23 - Matrix fail-fast & max-parallel
+
+on: workflow_dispatch
+
+jobs:
+  controlled-matrix:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Try BOTH values during the demo — the difference is dramatic.
+      fail-fast: false
+
+      # Only 2 of the 4 jobs run at a time. Watch the graph: two start,
+      # two sit in "Queued" until a slot frees up.
+      max-parallel: 2
+
+      matrix:
+        node: [18, 20, 22, 24]
+
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Do some work
+        run: |
+          echo "Testing on Node ${{ matrix.node }}"
+          node --version
+          sleep 15
+
+      - name: This one row fails on purpose
+        if: matrix.node == 18
+        run: |
+          echo "Simulating a bug that only appears on our oldest supported Node."
+          exit 1
+
+      - name: Finish
+        run: echo "Node ${{ matrix.node }} finished successfully."

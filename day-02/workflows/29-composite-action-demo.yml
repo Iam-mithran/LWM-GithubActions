@@ -1,0 +1,96 @@
+# 29 - USING a composite action
+# Pairs with day-02/actions/node-ci-setup/action.yml.
+#
+# 📋 SETUP — you must copy TWO things into your practice repo:
+#      .github/workflows/29-composite-action-demo.yml   (this file)
+#      .github/actions/node-ci-setup/action.yml         (the action)
+#
+# THE POINT: compare the two jobs below. `the-long-way` spells out three
+# steps. `the-short-way` does the same thing in two. Multiply that by every
+# job in every workflow in every repo and you see why this matters.
+#
+# ⚠️ THE ONE RULE: `actions/checkout` must run BEFORE `uses: ./...`.
+#    A local action is a file in your repo — the runner cannot load it until
+#    the repo is on disk. Forget it and you get:
+#      "Can't find 'action.yml' under '/home/runner/work/.../.github/actions/...'"
+#
+# WHEN TO USE WHICH (the decision guide — this is the exam question):
+#
+#   ┌────────────────────┬──────────────────┬─────────────────────────────┐
+#   │                    │ Composite action │ Reusable workflow           │
+#   ├────────────────────┼──────────────────┼─────────────────────────────┤
+#   │ Unit of reuse      │ a few STEPS      │ whole JOBS                  │
+#   │ Called from        │ a step (`uses:`) │ a job (`uses:`)             │
+#   │ Picks the runner?  │ no — inherits    │ yes — brings its own        │
+#   │ Own `permissions`? │ no               │ yes                         │
+#   │ Can run a matrix?  │ no               │ yes                         │
+#   │ Lives in           │ any folder       │ .github/workflows/ only     │
+#   │ Sees `secrets`?    │ no (pass inputs) │ yes (declared explicitly)   │
+#   └────────────────────┴──────────────────┴─────────────────────────────┘
+#
+#   Rule of thumb: repeating STEPS -> composite action.
+#                  repeating a whole JOB -> reusable workflow.
+#                  need real logic/an API call -> JavaScript action (Day 3).
+
+name: 29 - Composite Action
+
+on: workflow_dispatch
+
+jobs:
+  the-long-way:
+    name: Before — 3 repeated steps
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'sample-app/package-lock.json'
+      - run: npm ci
+      - run: npm test
+
+  the-short-way:
+    name: After — one composite step
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      # MANDATORY and easy to forget — the action itself lives in this repo.
+      - uses: actions/checkout@v5
+
+      - name: Set up Node and install
+        id: setup
+        uses: ./.github/actions/node-ci-setup    # a PATH, not owner/repo.
+                                                 # No @version — a local action
+                                                 # always runs at the current commit.
+        with:
+          node-version: '22'
+          working-directory: 'sample-app'
+
+      - name: Composite actions can return outputs too
+        run: echo "The action reported Node ${{ steps.setup.outputs.installed-version }}"
+
+      - run: npm test
+
+  # Composite actions compose with everything else, including a matrix.
+  across-a-matrix:
+    name: Node ${{ matrix.node }} via the composite action
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    defaults:
+      run:
+        working-directory: sample-app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/node-ci-setup
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test

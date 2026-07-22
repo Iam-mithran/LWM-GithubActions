@@ -1,0 +1,74 @@
+# 28 - CALLING a reusable workflow (the "caller")
+# Pairs with file 27. Copy BOTH into .github/workflows/ or this one cannot
+# resolve the path.
+#
+# THE SHAPE THAT SURPRISES EVERYONE:
+# You call a reusable workflow from the JOB level, not from a step.
+#
+#     jobs:
+#       my-job:
+#         uses: ./.github/workflows/27-reusable-workflow-callee.yml   # <- job-level
+#         with: { ... }
+#
+# A job that has `uses:` MUST NOT have `steps:` or `runs-on:`. The called
+# workflow brings its own jobs and its own runners. The only keys allowed
+# alongside it are: with, secrets, needs, if, permissions, strategy, concurrency.
+# Trying to bolt "just one extra step" onto the call is the mistake everyone
+# makes once — put that step in a separate job instead.
+#
+# HOW TO REFERENCE ONE:
+#   ./.github/workflows/file.yml                    same repo (no @ref, uses this commit)
+#   owner/repo/.github/workflows/file.yml@v1        another repo, at a tag
+#   owner/repo/.github/workflows/file.yml@<sha>     another repo, pinned (Day 3)
+#
+# WHAT TO OBSERVE: the run graph shows the caller's job with the CALLEE's
+# jobs nested inside it. Click through to see the reused steps.
+
+name: 28 - Reusable Workflow Caller
+
+on: workflow_dispatch
+
+jobs:
+  # ── 1. Simplest possible call: take every default ────────────────────────
+  test-defaults:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+
+  # ── 2. Pass explicit inputs ──────────────────────────────────────────────
+  test-node-22:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: '22'
+      run-lint: false                 # boolean input -> no quotes
+
+  # ── 3. Pass a secret ─────────────────────────────────────────────────────
+  test-with-secret:
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: '20'
+    secrets:
+      # Left side = the name the CALLEE declared. Right side = your repo secret.
+      API_KEY: ${{ secrets.MY_API_KEY }}
+
+      # Shortcut: `secrets: inherit` hands over ALL of the caller's secrets.
+      # Convenient, and exactly the kind of over-sharing Day 3 argues against.
+      # Prefer naming them one by one.
+
+  # ── 4. A matrix OF reusable-workflow calls ───────────────────────────────
+  # `strategy` is one of the few keys allowed next to `uses`, so you can fan
+  # a reusable workflow across versions. This is where reuse really pays off.
+  test-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    uses: ./.github/workflows/27-reusable-workflow-callee.yml
+    with:
+      node-version: ${{ matrix.node }}
+
+  # ── 5. Read the callee's OUTPUT ──────────────────────────────────────────
+  report:
+    needs: test-defaults
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read what the reusable workflow returned
+        run: echo "The reusable workflow tested Node ${{ needs.test-defaults.outputs.tested-version }}"

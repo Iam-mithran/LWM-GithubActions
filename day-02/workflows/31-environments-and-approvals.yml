@@ -1,0 +1,97 @@
+# 31 - Environments: scoped secrets, and a human gate before deploy
+#
+# An ENVIRONMENT is a named deployment target — `staging`, `production`,
+# `qa`. It gives you three things a plain job does not have:
+#   1. Its own SECRETS and VARIABLES, scoped to that target only.
+#   2. PROTECTION RULES — required approvals, wait timers, branch policies.
+#   3. Deployment HISTORY in the repo's Environments page.
+#
+# 📋 SETUP BEFORE RUNNING (Settings -> Environments -> New environment):
+#
+#   Create `staging`
+#     - Add an environment secret:   DEPLOY_TOKEN = staging-token-123
+#     - Add an environment variable: API_URL      = https://staging.example.com
+#
+#   Create `production`
+#     - Add an environment secret:   DEPLOY_TOKEN = prod-token-456
+#     - Add an environment variable: API_URL      = https://api.example.com
+#     - ✅ Required reviewers -> add YOURSELF        (the approval gate)
+#     - ✅ Wait timer -> 1 minute                    (optional, very visible)
+#     - ✅ Deployment branches -> "Selected branches" -> main
+#
+# 🔑 SECRET PRECEDENCE — most specific wins:
+#       environment  >  repository  >  organization
+#    Both environments below define DEPLOY_TOKEN under the SAME NAME. The job
+#    that says `environment: staging` transparently gets the staging value.
+#    That is the whole trick: one workflow, one secret name, different values
+#    per target — no `if` statements picking secret names.
+#
+# 🔑 SECRETS vs VARIABLES:
+#       secrets.X  -> encrypted, masked in logs, for credentials
+#       vars.X     -> plain text, visible in logs, for config (URLs, regions)
+#    Do not put a URL in a secret. Masking it makes your logs unreadable.
+#
+# WHAT TO OBSERVE: the run PAUSES at deploy-production with a yellow
+# "Waiting" badge and a "Review deployments" button. Nothing executes until
+# you click Approve. Meanwhile the Environments page records the deployment.
+
+name: 31 - Environments & Approvals
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Building the artifact that both environments will deploy."
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+
+    # No protection rules on staging, so this runs immediately.
+    environment:
+      name: staging
+      url: ${{ vars.API_URL }}      # renders as a clickable link on the run page
+                                    # and on the Environments dashboard
+
+    steps:
+      - name: Deploy to staging
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # resolves to the STAGING value
+        run: |
+          echo "Target URL : ${{ vars.API_URL }}"     # plain text — readable
+          echo "Token length: ${#DEPLOY_TOKEN}"       # never echo the token itself
+          echo "✅ Deployed to staging."
+
+  deploy-production:
+    needs: deploy-staging           # promote through environments, never skip one
+    runs-on: ubuntu-latest
+
+    # Same syntax, but this environment has a required reviewer — so the job
+    # sits and WAITS for a human. The `environment:` key is the entire gate;
+    # there is no separate "approval" step to write.
+    environment:
+      name: production
+      url: ${{ vars.API_URL }}
+
+    steps:
+      - name: Deploy to production
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # now the PRODUCTION value
+        run: |
+          echo "Target URL : ${{ vars.API_URL }}"
+          echo "Token length: ${#DEPLOY_TOKEN}"
+          echo "🚀 Deployed to production — after a human approved it."
+
+      # TRY THIS: open a branch called `test-gate`, point this workflow's push
+      # trigger at it, and run. The production job is REJECTED before it starts
+      # because the environment only allows deployments from `main`. Branch
+      # policies are enforced by GitHub, not by your `if:` conditions — which
+      # is exactly why they cannot be bypassed by editing the workflow file.
