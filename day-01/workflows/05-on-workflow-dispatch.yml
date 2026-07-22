@@ -1,0 +1,37 @@
+# 05 - Trigger: workflow_dispatch (manual run with inputs)
+# Adds a "Run workflow" button to the Actions tab.
+# Great for deployments, one-off tasks, or letting testers pick options.
+
+name: 05 - Manual Run With Inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice          # renders a dropdown in the UI
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to deploy (e.g. 1.4.0)'
+        required: false
+        default: 'latest'
+        type: string
+      dry_run:
+        description: 'Only simulate, do not actually deploy'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  manual-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show the inputs the user selected
+        run: |
+          echo "Environment : ${{ inputs.environment }}"
+          echo "Version     : ${{ inputs.version }}"
+          echo "Dry run?    : ${{ inputs.dry_run }}"

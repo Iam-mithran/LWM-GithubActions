@@ -1,0 +1,26 @@
+# 11 - actions/setup-node
+# Installs a specific Node.js version on the runner and puts it on PATH.
+# The same pattern exists for other languages:
+#   actions/setup-python, actions/setup-java, actions/setup-go, etc.
+
+name: 11 - Setup Node
+
+on: workflow_dispatch
+
+jobs:
+  node-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Install Node.js 20
+        uses: actions/setup-node@v6      # current major version
+        with:
+          node-version: '20'
+          cache: 'npm'                   # cache npm downloads to speed up future runs
+
+      - name: Confirm the versions
+        run: |
+          node --version
+          npm --version

@@ -1,0 +1,18 @@
+# 02 - Trigger: push
+# Runs EVERY TIME code is pushed to the repository (any branch).
+# This is the most common Continuous Integration trigger.
+
+name: 02 - On Push
+
+on: push   # short form: run on every push to any branch
+
+jobs:
+  on-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show what triggered this run
+        run: |
+          echo "Event name : $GITHUB_EVENT_NAME"   # -> push
+          echo "Branch ref : $GITHUB_REF"          # -> refs/heads/<branch>
+          echo "Commit SHA : $GITHUB_SHA"
+          echo "Pushed by  : $GITHUB_ACTOR"

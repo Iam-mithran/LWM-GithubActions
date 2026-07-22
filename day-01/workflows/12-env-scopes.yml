@@ -1,0 +1,34 @@
+# 12 - Environment variables and their THREE scopes
+# You can define custom variables with `env:` at three levels.
+# Inner scopes OVERRIDE outer scopes (step > job > workflow).
+# Read them in shell as $NAME, or in expressions as ${{ env.NAME }}.
+
+name: 12 - Env Scopes
+
+on: workflow_dispatch
+
+env:
+  APP_NAME: DemoApp          # workflow scope -> visible to ALL jobs & steps
+  STAGE: global
+
+jobs:
+  show-env:
+    runs-on: ubuntu-latest
+    env:
+      STAGE: job-level        # job scope -> overrides workflow value for this job
+    steps:
+      - name: Uses workflow + job env
+        run: |
+          echo "APP_NAME = $APP_NAME"   # DemoApp   (from workflow scope)
+          echo "STAGE    = $STAGE"      # job-level (job overrides workflow)
+
+      - name: Step scope wins
+        env:
+          STAGE: step-level     # step scope -> overrides job AND workflow
+        run: |
+          echo "APP_NAME = $APP_NAME"   # DemoApp
+          echo "STAGE    = $STAGE"      # step-level
+
+      - name: Read env inside an expression
+        if: ${{ env.APP_NAME == 'DemoApp' }}
+        run: echo "Expression saw APP_NAME = ${{ env.APP_NAME }}"

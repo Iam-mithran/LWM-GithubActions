@@ -1,0 +1,11 @@
+{
+  "name": "gha-day1-sample-app",
+  "version": "1.0.0",
+  "description": "Tiny zero-dependency Node app used to demo a first CI pipeline.",
+  "type": "module",
+  "scripts": {
+    "lint": "node --check src/math.js && echo \"Lint OK: no syntax errors\"",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

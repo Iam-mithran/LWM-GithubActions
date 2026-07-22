@@ -1,0 +1,55 @@
+# 15 - HANDS-ON: Your first real CI pipeline (combines everything from Day 1)
+#
+# This single workflow brings together:
+#   - multiple triggers (push, pull_request, manual)
+#   - branch filtering
+#   - a GitHub-hosted runner
+#   - actions/checkout and actions/setup-node
+#   - custom env variables
+#   - contexts/expressions
+#   - a secret (optional)
+#   - multi-step build -> lint -> test flow
+#
+# PREREQUISITE: your repo must contain the sample app at its ROOT:
+#   package.json, src/math.js, test/math.test.js
+# (Copy them from day-01/sample-app/ in this course.)
+
+name: 15 - Node CI (Day 1 Capstone)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Check out the code
+        uses: actions/checkout@v5
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 🔍 Lint
+        run: npm run lint
+
+      - name: 🧪 Run tests
+        run: npm test
+
+      - name: ✅ Summary
+        run: |
+          echo "Pipeline finished for commit ${{ github.sha }}"
+          echo "Triggered by: ${{ github.event_name }} on ${{ github.ref_name }}"

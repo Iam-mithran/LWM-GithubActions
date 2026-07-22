@@ -1,0 +1,32 @@
+# 08 - Runners: runs-on and the runner context
+# A "runner" is the virtual machine that executes your job.
+# GitHub hosts fresh, clean runners for you: Linux, Windows, and macOS.
+# `runs-on` picks which one. Each job gets its OWN runner.
+
+name: 08 - Runners
+
+on: workflow_dispatch
+
+jobs:
+  linux-job:
+    runs-on: ubuntu-latest      # most common + fastest + cheapest
+    steps:
+      - name: Inspect the Linux runner
+        run: |
+          echo "OS       : $RUNNER_OS"          # -> Linux
+          echo "Arch     : $RUNNER_ARCH"        # -> X64
+          echo "Home     : $HOME"
+          echo "Temp dir : $RUNNER_TEMP"
+
+  windows-job:
+    runs-on: windows-latest     # PowerShell is the default shell here
+    steps:
+      - name: Inspect the Windows runner
+        run: |
+          Write-Host "OS is $env:RUNNER_OS"     # -> Windows
+
+  macos-job:
+    runs-on: macos-latest       # needed for iOS/macOS builds (uses more minutes)
+    steps:
+      - name: Inspect the macOS runner
+        run: echo "OS is $RUNNER_OS"            # -> macOS

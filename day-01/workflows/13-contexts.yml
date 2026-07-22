@@ -1,0 +1,37 @@
+# 13 - Contexts and expressions
+# Contexts are read-only objects full of information about the run.
+# Access them with the ${{ ... }} expression syntax.
+# The most useful contexts on Day 1:
+#   github  -> repo, event, actor, ref, sha, run_number ...
+#   runner  -> os, arch, temp, tool_cache
+#   env     -> your custom environment variables
+#   job / steps -> status & outputs (used more on Day 2)
+
+name: 13 - Contexts
+
+on: workflow_dispatch
+
+jobs:
+  explore-contexts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Common github context values
+        run: |
+          echo "Repository : ${{ github.repository }}"
+          echo "Actor      : ${{ github.actor }}"
+          echo "Event      : ${{ github.event_name }}"
+          echo "Ref name   : ${{ github.ref_name }}"
+          echo "SHA        : ${{ github.sha }}"
+          echo "Run number : ${{ github.run_number }}"   # increments each run
+          echo "Workspace  : ${{ github.workspace }}"
+
+      - name: Runner context
+        run: |
+          echo "Runner OS   : ${{ runner.os }}"
+          echo "Runner arch : ${{ runner.arch }}"
+
+      # Dump the ENTIRE github context as JSON — great for debugging/learning
+      - name: Dump full github context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"

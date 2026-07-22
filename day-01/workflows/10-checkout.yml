@@ -1,0 +1,26 @@
+# 10 - actions/checkout
+# By default the runner is EMPTY — your code is NOT there yet.
+# actions/checkout clones your repository onto the runner so later
+# steps can see your files. It is the #1 most-used action.
+#
+# Almost every CI job starts with this step.
+
+name: 10 - Checkout
+
+on: workflow_dispatch
+
+jobs:
+  without-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try to list files BEFORE checkout
+        run: ls -la          # your repo files are missing here
+
+  with-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5      # current major version (Node 24 runtime)
+
+      - name: List files AFTER checkout
+        run: ls -la          # now your repo files are present

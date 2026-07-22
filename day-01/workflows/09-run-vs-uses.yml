@@ -1,0 +1,27 @@
+# 09 - The two kinds of steps: run vs uses
+# Every step does ONE of two things:
+#   run:  execute shell command(s) on the runner
+#   uses: run a prebuilt, reusable "action" (from the Marketplace or your repo)
+# You cannot use both `run` and `uses` in the same step.
+
+name: 09 - run vs uses
+
+on: workflow_dispatch
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      # --- uses: pull in a reusable action ---
+      - name: Check out the repository code
+        uses: actions/checkout@v5        # an action published by GitHub
+
+      # --- run: your own shell commands ---
+      - name: Run a shell command
+        run: echo "Files in the repo:" && ls -la
+
+      # `with:` passes INPUTS to a `uses:` action
+      - name: Checkout with an input
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0                 # 0 = full history instead of just the last commit
