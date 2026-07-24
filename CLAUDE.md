@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 📍 Current status / where to pick up
+
+_Keep this block updated when finishing a chunk of work — it's the first thing a new session (or the same author on another machine) should read._
+
+- **Done:** Day 1 (README §1–7, workflows `01`–`11`) recorded. Day 2 (README §8–15, workflows `12`–`19`, through status functions) written and being recorded.
+- **Next:** write the **Day 3 teaching content** — add the Day 3 sections to the root [README.md](README.md) covering workflows `20`–`34` (job outputs → matrix → caching → artifacts v4 → reusable workflows & composite action → `permissions` → environments/approvals → concurrency → timeouts → capstone). **Those workflow files already exist** in [day-02/workflows/](day-02/workflows/) and [day-02/actions/](day-02/actions/); they just need the narration written around them, then a `youtube/day03_youtube.md`.
+- **Note:** files `20`–`34` live under `day-02/workflows/` even though they're Day 3 content — that's intentional (see the numbering rule below). Don't move them.
+- The live scope tracker is the Build Status table in [COURSE_OUTLINE.md](COURSE_OUTLINE.md).
+
 ## What this repository is
 
 This is **course content**, not an application. It backs a 3-day YouTube series ("GitHub Actions: Zero to Advanced in 3 Days", channel LearnWithMithran, repo `Iam-mithran/LWM-GithubActions`). The deliverables are teaching documents and copy-paste-ready workflow YAML — the audience is expected to work **100% in the GitHub web UI with nothing installed locally**.
