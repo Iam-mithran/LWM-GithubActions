@@ -4,30 +4,33 @@
 
 ## Video Title
 
-GitHub Actions Full Course — Multi-Job Pipelines, Matrix, Caching, Artifacts & Reusable Workflows | Day 2
+GitHub Actions Full Course — Variables, Contexts, Secrets & Multi-Job Pipelines with `needs`, `if` & Status Functions | Day 2
 
 ---
 
 ## Thumbnail
 
-**Main text (large, bold):** `Build → Test → Deploy`
+**Main text (large, bold):** `One Job → Many Jobs`
 **Sub text:** `Day 2 — GitHub Actions Zero to Hero`
 **Suggested visual elements:**
 - Dark GitHub background (#0D1117) with GitHub Actions blue accent (#2088FF)
-- A **pipeline graph** on the right: 3 connected job boxes with green ticks, and the last one showing a yellow ⏸️ "Waiting for approval" badge
-- A 3×3 **matrix grid** icon on the left (Ubuntu / Windows / macOS × Node 20 / 22 / 24)
-- `MATRIX · CACHE · ARTIFACTS` badge in a bright pill
+- A **pipeline graph** on the right: `build → test / lint → deploy` job boxes, with `deploy` shown **grey (skipped)** because `lint` failed — the exact "what to observe" moment from the video
+- A masked **secret** chip on the left: `MY_API_KEY = ***`
+- A bright pill showing the gotcha: `if: 'false'  →  TRUE`
+- `needs · if · success() · failure()` badge
 - Channel name: LearnWithMithran (bottom corner)
 
-**Key message to convey at a glance:** One job becomes a real pipeline — parallel, cached, and gated by a human before production.
+**Key message to convey at a glance:** Finish the fundamentals (variables, contexts, secrets), ship one full CI pipeline, then turn it into many jobs wired together with `needs`, `if` and status functions.
 
 ---
 
 ## Description
 
-*Welcome back to Learn With Mithran! On Day 1 you shipped a single CI job. Today we turn it into a real, multi-stage pipeline — the kind production teams actually run.*
+*Welcome back to Learn With Mithran! On Day 1 you shipped your first CI job. Today we finish the fundamentals, build a complete Node.js CI pipeline, and then turn one job into a real **multi-job pipeline** wired together with `needs`, `if` and status functions.*
 
-We start by finishing Day 1's remaining topics — environment variables and their three scopes, contexts and expressions, repository secrets, and the full Node.js CI capstone — then go straight into real pipeline engineering. You'll connect jobs with `needs`, run them conditionally with `if` and status functions, pass data between jobs with outputs, test across a **matrix** of Node versions and operating systems, **cache** dependencies, share files with **artifacts v4**, and stop copy-pasting YAML forever using **reusable workflows** and **composite actions**. We finish by locking down `GITHUB_TOKEN` with least-privilege `permissions`, gating production behind a **required human approval** using environments, and controlling cost with `concurrency` and timeouts. 🚀
+We start by closing out the core language of GitHub Actions — **environment variables** and their three scopes (and why `$NAME` and `${{ env.NAME }}` are evaluated by different things), **contexts and expressions** (`github`, `runner`, `env`, `secrets`, `vars`, `needs`, plus the `toJSON` debugging trick), and **secrets vs variables** (masking, the fork-PR rule, and why putting a URL in a secret ruins your logs). Then we bring it all together in a **full Node.js CI capstone** — checkout → setup-node → install → lint → test — including the subfolder rule that trips everyone up (`working-directory` vs `cache-dependency-path`).
+
+From there we go multi-job: why every job runs on its **own isolated machine** and what that breaks, connecting jobs into a **build → test → deploy DAG** with `needs`, making jobs and steps conditional with `if` (and the infamous `if: 'false'` that is actually **TRUE**), and finally the four **status functions** — `success()`, `failure()`, `always()`, `cancelled()` — and the invisible `if: success()` that explains every "why did my job turn grey?" moment. 🚀
 
 **Still 100% browser-based — no local setup, nothing to install.** Every workflow file used in this video is prebuilt in the GitHub repo below. Copy, commit, watch it run.
 
@@ -54,79 +57,57 @@ Greens Technologys, Perumbakkam (https://maps.app.goo.gl/u34U3rXu8zPFfQh5A)
 🎯 *Topics Covered*:
 
 🔹 Environment variables and their three scopes — workflow, job and step, and which one wins
-🔹 Contexts and expressions — `github`, `runner`, `env`, `needs`, `matrix`, `vars` and the `toJSON` debugging trick
-🔹 Repository secrets — masking, the fork-PR rule, and secrets vs variables
-🔹 Day 1 capstone — the complete Node.js CI pipeline, live
-🔹 Why every job runs on its own machine, and what that breaks
-🔹 `needs` — turning parallel jobs into a build → test → deploy DAG
-🔹 `if` conditionals — and why `if: 'false'` is actually TRUE
-🔹 Status functions — `success()`, `failure()`, `always()`, `cancelled()` and the invisible default
-🔹 Job outputs — `$GITHUB_OUTPUT`, the three-link chain, and multi-line values
-🔹 Matrix builds — versions × operating systems, `include` and `exclude`
-🔹 `fail-fast` and `max-parallel` — controlling a matrix
-🔹 Dependency caching — cache keys, `hashFiles()`, `restore-keys` and the immutable-key bug
-🔹 Cache vs artifact — the difference people get wrong
-🔹 Artifacts v4 — upload, download, and why v3 workflows now fail outright
-🔹 The v4 matrix trap — "an artifact with this name already exists" and how to fix it
-🔹 Merging matrix artifacts with `upload-artifact/merge` and `merge-multiple`
-🔹 Reusable workflows — `workflow_call`, typed inputs, secrets and outputs
-🔹 Composite actions — bundling steps, the mandatory `shell:`, and the checkout chicken-and-egg
-🔹 Reusable workflow vs composite action vs custom action — the decision guide
-🔹 `GITHUB_TOKEN` and least-privilege `permissions` — why the block is not additive
-🔹 Environments — scoped secrets, secret precedence, and deployment URLs
-🔹 Required reviewers — pausing a deploy until a human clicks Approve
-🔹 `concurrency` — cancelling stale PR builds vs serialising deploys
-🔹 `timeout-minutes` and `continue-on-error` — plus `outcome` vs `conclusion`
-🔹 Full capstone — build → test → deploy with approval, artifacts and least privilege
+🔹 `$NAME` vs `${{ env.NAME }}` — shell evaluation vs GitHub evaluation, and when each is allowed
+🔹 Contexts and expressions — `github`, `runner`, `env`, `secrets`, `vars`, `needs`
+🔹 The `toJSON()` debugging trick — dump a whole context instead of guessing
+🔹 Context availability — why `secrets` and `needs` aren't available everywhere
+🔹 Repository secrets — masking (`***`), the fork-PR rule, and `GITHUB_TOKEN`
+🔹 Secrets vs variables — same UI, opposite purpose (and the URL-in-a-secret mistake)
+🔹 Your first full Node.js CI pipeline — checkout → setup-node → install → lint → test
+🔹 The subfolder rule — `working-directory` (for `run:`) vs `cache-dependency-path` (for `uses:`)
+🔹 Reading a red build on purpose — break a test, read the failure, fix it green
+🔹 Why every job runs on its own machine — and what that breaks (nothing is shared)
+🔹 Order in the file means nothing — only `needs` creates order
+🔹 `needs` — turning parallel jobs into a build → test → deploy DAG (with fan-in)
+🔹 Why a failed dependency makes downstream jobs **skipped (grey)**, not failed
+🔹 `if` conditionals on jobs and steps — operators, `contains()`, `startsWith()`, `endsWith()`
+🔹 The quoting gotcha — why `if: 'false'` is actually TRUE
+🔹 Status functions — `success()`, `failure()`, `always()`, `cancelled()`
+🔹 The invisible default `if: success()` — the reason jobs turn grey, and how to override it
 
 📌 *Who Is This Video For:*
 
-💻 Anyone who finished Day 1 and wants a real pipeline, not just a single job
+💻 Anyone who finished Day 1 and wants to go from a single job to a real pipeline
 🧑‍🎓 Students and freshers preparing for DevOps and cloud job roles
-🛠️ Developers whose CI is slow, flaky, or full of copy-pasted YAML
-🚀 DevOps, SRE and platform engineers standardizing builds and deployments
-🔁 Anyone migrating multi-stage pipelines from Jenkins, GitLab CI or CircleCI
-🏢 Teams that need approvals and least-privilege tokens before they can ship
+🛠️ Developers who copy-paste workflow YAML without really knowing how contexts, secrets and `if` work
+🚀 DevOps, SRE and platform engineers standardizing multi-job builds
+🔁 Anyone migrating pipelines from Jenkins, GitLab CI or CircleCI to the GitHub-native way
+🏢 Teams that need to handle secrets and conditional deploys correctly
 
 🔍 *Chapters:*
 0:00 Intro — From One Job to a Real Pipeline
-3:00 Recap of Day 1 + What's New in the Sample App
-8:00 Environment Variables & the Three Scopes
-18:00 Contexts and Expressions (+ the toJSON Debug Trick)
-30:00 Secrets — Masking, Fork PRs, Secrets vs Variables
-40:00 Day 1 Capstone — The Full Node.js CI Pipeline
-52:00 Many Jobs — Parallel by Default, and Fully Isolated
-1:00:00 `needs` — Building a Build → Test → Deploy DAG
-1:10:00 `if` Conditionals on Jobs and Steps
-1:20:00 Status Functions — success, failure, always, cancelled
-1:30:00 Job Outputs — Passing Data Between Jobs
-1:42:00 Matrix Builds — One Job, Many Versions
-1:52:00 Matrix `include` / `exclude` and Multi-OS Grids
-2:02:00 `fail-fast` and `max-parallel`
-2:10:00 Caching Dependencies — Keys, hashFiles and restore-keys
-2:24:00 Cache vs Artifact — The Difference That Matters
-2:30:00 Artifacts v4 — Upload and Download Between Jobs
-2:42:00 The v4 Matrix Trap and How to Merge Artifacts
-2:52:00 Reusable Workflows — `workflow_call` and Typed Inputs
-3:06:00 Composite Actions — Bundling Repeated Steps
-3:18:00 Which One Do I Use? The Reuse Decision Guide
-3:24:00 GITHUB_TOKEN and Least-Privilege `permissions`
-3:36:00 Environments, Scoped Secrets and Secret Precedence
-3:46:00 Deployment Gates — Requiring a Human Approval
-3:56:00 Concurrency — Cancel Stale Builds, Serialise Deploys
-4:06:00 Timeouts and continue-on-error (outcome vs conclusion)
-4:14:00 🚀 Capstone — The Full Build → Test → Deploy Pipeline
-4:34:00 Day 2 Cheat Sheet & Recap
-4:40:00 What's Next — Day 3 Preview
+2:30 Recap of Day 1 + the Sample App
+6:00 Environment Variables & the Three Scopes
+14:00 `$NAME` vs `${{ env.NAME }}` — Shell vs GitHub Evaluation
+19:00 Contexts & Expressions (+ the toJSON Debug Trick)
+30:00 Secrets & Variables — Masking, Fork PRs, Secrets vs Variables
+42:00 🚀 Capstone — Your First Full Node.js CI Pipeline
+54:00 The Subfolder Rule — working-directory vs cache-dependency-path
+1:00:00 Many Jobs — Parallel by Default and Fully Isolated
+1:09:00 `needs` — Building a Build → Test → Deploy DAG
+1:20:00 `if` Conditionals — and Why `if: 'false'` Is Actually TRUE
+1:31:00 Status Functions — success, failure, always, cancelled
+1:43:00 Day 2 Cheat Sheet & Recap
+1:49:00 What's Next — Day 3 Preview
 
-⏭️ *Coming in Day 3:* supply-chain security and pinning actions to a commit SHA, OIDC keyless authentication to AWS/Azure/GCP, building and publishing your own JavaScript and Docker actions, publishing images to GHCR, self-hosted runners, `workflow_run` and monorepo strategies, CodeQL and secret scanning, and the full hardened capstone pipeline.
+⏭️ *Coming in Day 3:* the rest of the pipeline — **job outputs** (passing data between jobs), **matrix builds** across Node versions and operating systems, **dependency caching**, **artifacts v4** (and the v4 matrix trap), **reusable workflows** and **composite actions**, least-privilege **`GITHUB_TOKEN` permissions**, **environments** with required-reviewer **approvals**, **concurrency** and timeouts — then the advanced hardening: **SHA-pinning** actions, **OIDC** keyless cloud auth, building and publishing your own **JavaScript/Docker actions**, **GHCR**, self-hosted runners, **CodeQL** and secret scanning, and the full hardened capstone.
 
 👍 If this video helps you, like, subscribe, and turn on notifications for more hands-on content on GitHub Actions, DevOps, Azure, AWS, Linux, and Python.
 
-#GitHubActions #CICD #DevOps #GitHubActionsTutorial #CIPipeline #MatrixBuild #ReusableWorkflows #CompositeActions #GitHubArtifacts #DependencyCaching #ContinuousIntegration #ContinuousDeployment #GitHub #DevOpsForBeginners #WorkflowAutomation #LearnWithMithran #GitHubActionsCourse #BuildAutomation #GitHubWorkflow #DevOpsTutorial #DeploymentApproval #LeastPrivilege #GitHubEnvironments #GreensTechnologies #DevOpsTraining #JenkinsAlternative
+#GitHubActions #CICD #DevOps #GitHubActionsTutorial #CIPipeline #GitHubActionsSecrets #GitHubActionsContexts #EnvironmentVariables #MultiJobPipeline #GitHubActionsNeeds #StatusFunctions #IfConditions #ContinuousIntegration #ContinuousDeployment #GitHub #DevOpsForBeginners #WorkflowAutomation #LearnWithMithran #GitHubActionsCourse #NodeJsCI #GitHubWorkflow #DevOpsTutorial #GreensTechnologies #DevOpsTraining #JenkinsAlternative
 
 ---
 
 ## Tags
 
-github actions, github actions tutorial, github actions matrix, github actions matrix build, github actions cache, github actions artifacts, upload artifact v4, download artifact v4, github actions reusable workflow, workflow_call, composite action github actions, github actions needs, github actions job outputs, github_output, github actions if condition, github actions always failure success, github actions concurrency, cancel in progress, github actions permissions, github_token permissions, least privilege github actions, github environments, deployment approval github actions, required reviewers, github actions timeout, continue-on-error, ci cd pipeline tutorial, multi stage pipeline, build test deploy pipeline, devops tutorial, devops for beginners, github actions full course, github actions course 2026, learnwithmithran, greens technologies
+github actions, github actions tutorial, github actions course, github actions full course, github actions environment variables, github actions env scopes, github actions contexts, github actions expressions, tojson github actions, github actions secrets, secrets vs variables github actions, github_token, github actions masking, github actions fork pull request secrets, github actions node ci, node.js ci pipeline, working-directory github actions, github actions multiple jobs, github actions parallel jobs, github actions needs, needs dependencies github actions, build test deploy pipeline, github actions if condition, if false is true github actions, github actions status functions, success failure always cancelled, github actions dag, ci cd pipeline tutorial, devops tutorial, devops for beginners, github actions 2026, learnwithmithran, greens technologies
