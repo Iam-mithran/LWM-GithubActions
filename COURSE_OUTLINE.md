@@ -144,16 +144,21 @@ By the end of the course you will be able to:
 
 ## Build Status
 
-This document is the master blueprint. Each day is expanded into a teaching script, runnable workflow files, and YouTube metadata.
+This document is the master blueprint. The teaching script for the recorded videos is the single [`README.md`](README.md) at the repo root; workflow files and YouTube metadata sit alongside it.
 
-| Day | Teaching script | Workflow files | YouTube metadata | Status |
-|-----|-----------------|----------------|------------------|--------|
-| Day 1 | [`day-01/README.md`](day-01/README.md) | [`day-01/workflows/`](day-01/workflows/) `01`–`11` | [`youtube/day01_youtube.md`](youtube/day01_youtube.md) | ✅ Recorded |
-| Day 2 | [`day-02/README.md`](day-02/README.md) | [`day-02/workflows/`](day-02/workflows/) `12`–`34` + [`day-02/actions/`](day-02/actions/) | [`youtube/day02_youtube.md`](youtube/day02_youtube.md) | ✅ Ready to record |
-| Day 3 | — | — | — | 📝 Outline only |
+| Day | Teaching content | Workflow files | YouTube metadata | Status |
+|-----|------------------|----------------|------------------|--------|
+| Day 1 | [`README.md`](README.md) §1–7 | [`day-01/workflows/`](day-01/workflows/) `01`–`11` | [`youtube/day01_youtube.md`](youtube/day01_youtube.md) | ✅ Recorded |
+| Day 2 | [`README.md`](README.md) §8–15 | [`day-02/workflows/`](day-02/workflows/) `12`–`19` | [`youtube/day02_youtube.md`](youtube/day02_youtube.md) | 🎬 Recording |
+| Day 3 | — | [`day-02/workflows/`](day-02/workflows/) `20`–`34` + [`day-02/actions/`](day-02/actions/) *(files ready, script pending)* | — | 📝 Files ready, script pending |
 
-**Workflow files are numbered continuously across the whole course**, not per day — the number is the teaching order. Day 3 will start at `35`.
+**Workflow files are numbered continuously across the whole course**, not per day — the number is the teaching order, independent of which folder the file sits in.
 
-> ⚠️ **Day 1 / Day 2 boundary changed during recording.** The Day 1 video ran long and stopped after `actions/setup-node`. Day 1 topic **7 (variables, contexts, secrets)** and the **Day 1 hands-on capstone** were moved to the start of Day 2, and their files (`12`–`15`) now live in [`day-02/workflows/`](day-02/workflows/). The topic lists below are the original blueprint; the day READMEs are the source of truth for what is actually taught where.
+> ⚠️ **The day boundaries moved as the videos were recorded, and the file layout was deliberately left in place.**
+> - Day 1 stopped after `actions/setup-node`, so variables / contexts / secrets and the CI capstone (`12`–`15`) are taught at the **start of Day 2**.
+> - Day 2 runs through **status functions (`19`)**. Everything from **job outputs (`20`) onward is Day 3**.
+> - The files for `12`–`34` all live under [`day-02/workflows/`](day-02/workflows/) regardless of which day teaches them — the numeric prefix, not the folder, is the source of truth for order. Don't relocate them to match the day.
+>
+> The single root [`README.md`](README.md) is the source of truth for what is actually taught and in what order; the per-topic lists below are the original blueprint.
 
-**Next:** expand Day 3 into a teaching script and workflow files, following the same pattern.
+**Next:** write the Day 3 teaching content (job outputs, matrix, caching, artifacts, reuse, permissions, environments, concurrency — files `20`–`34` already exist) and record it.

@@ -8,11 +8,49 @@ name: 12 - Env Scopes
 on: workflow_dispatch
 
 env:
-  APP_NAME: DemoApp          # workflow scope -> visible to ALL jobs & steps
-  STAGE: global
+  NAME: Mithran
 
 jobs:
-  show-env:
+  job1:
+    runs-on: ubuntu-latest
+    env:
+      NAME: Munna
+    steps:
+      - name: Uses workflow + job env
+        run: |
+          echo "my name is = $NAME"
+
+  job2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Uses workflow + job env
+        run: |
+          echo "my name is = $NAME"
+
+  job3:
+    runs-on: ubuntu-latest
+    env:
+      NAME: Munna
+    steps:
+      - name: Uses workflow + job env
+        env:
+          NAME: Cloud Teacher
+        run: |
+          echo "my name is = $NAME"   
+
+
+---
+
+name: 12 - Env Scopes
+
+on: workflow_dispatch
+
+env:
+  APP_NAME: DemoApp          # workflow scope -> visible to ALL jobs & steps
+  STAGE: global-level
+
+jobs:
+  job1:
     runs-on: ubuntu-latest
     env:
       STAGE: job-level        # job scope -> overrides workflow value for this job
@@ -26,9 +64,10 @@ jobs:
         env:
           STAGE: step-level     # step scope -> overrides job AND workflow
         run: |
-          echo "APP_NAME = $APP_NAME"   # DemoApp
-          echo "STAGE    = $STAGE"      # step-level
+          echo "APP_NAME = $APP_NAME"   # DemoApp     
+          echo "STAGE    = $STAGE"      # step-level     
 
       - name: Read env inside an expression
-        if: ${{ env.APP_NAME == 'DemoApp' }}
+        if: ${{ env.STAGE == 'DemoApp' }}
         run: echo "Expression saw APP_NAME = ${{ env.APP_NAME }}"
+

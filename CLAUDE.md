@@ -11,23 +11,23 @@ Two consequences that shape almost every edit:
 - **There is deliberately no `.github/workflows/` directory here.** The files in [day-01/workflows/](day-01/workflows/) are *teaching artifacts* that learners copy into their own practice repo. Never move or copy them into `.github/workflows/` — that would make this repo run 15 demo workflows against itself. Nothing in this repo is meant to execute on push.
 - **The course promises "nothing to generate."** `sample-app/package-lock.json` is committed on purpose so learners never run `npm install` locally. Don't delete it, don't add dependencies to `sample-app` (it is zero-dependency by design so a demo can't break on a missing package).
 
-## Architecture: four coupled artifacts per day
+## Architecture: coupled artifacts that must stay consistent
 
-Each day of the course exists as four files that must stay consistent with each other. Changing one usually means updating the others:
+The course's teaching content is spread across a few files that must agree with each other. Changing one usually means updating the others:
 
 | Artifact | Role |
 |---|---|
 | [COURSE_OUTLINE.md](COURSE_OUTLINE.md) | The master blueprint — topic list and hands-on goal for all 3 days. Source of truth for scope. |
-| `day-NN/README.md` | The teaching script *and* the self-study guide in one document. Each section explains a keyword, links to its numbered workflow file, and says "what to observe" in the Actions tab. Contains the mermaid diagrams. |
+| [README.md](README.md) (repo root) | **The single teaching script** *and* self-study guide for the whole course. One document with `# Day 1` / `# Day 2` sections; each numbered section explains a keyword, links to its numbered workflow file, says "what to observe" in the Actions tab, and holds the mermaid diagrams. **There is one README, at the root — not one per day.** |
 | `day-NN/workflows/NN-topic.yml` | The runnable demo files, numbered to match the README's section order. |
-| `day-NN/actions/<name>/action.yml` | Local composite actions, when a day teaches them (Day 2 only so far). |
+| `day-NN/actions/<name>/action.yml` | Local composite actions, when a day teaches them. |
 | `youtube/dayNN_youtube.md` | Video title, thumbnail brief, description, "what you'll learn" bullets, timestamped chapters, and tags. |
 
-**Workflow numbers are continuous across the whole course, not per day** — the number is the teaching order. Day 1 owns `01`–`11`, Day 2 owns `12`–`34`, Day 3 starts at `35`. Each README references its workflows by relative markdown link into `workflows/`, so **renaming or renumbering a file means fixing those links**. Insert `04a` style names rather than renumbering a whole day.
+The root README references workflows by relative markdown link (e.g. `[`11-setup-node.yml`](day-01/workflows/11-setup-node.yml)`), so **renaming or renumbering a file means fixing those links**. Insert `04a` style names rather than renumbering.
 
-Day 1 and Day 2 are written; Day 3 exists as outline sections only.
+**The numeric prefix is the teaching order; the folder is not.** Numbers run continuously across the whole course: `01`–`11` = Day 1, `12`–`19` = Day 2, `20`–`34` = Day 3, and Day 3 continues from `35`. Files `12`–`34` all physically live under `day-02/workflows/` regardless of which day teaches them — this is deliberate (the boundaries shifted during recording). **Do not move files between `day-NN` folders to "match" the day**, and do not assume a file in `day-02/` is Day 2 content — check the number against the mapping above and against the README.
 
-**The Day 1/Day 2 boundary moved after Day 1 was recorded.** The video stopped after `actions/setup-node`, so files `12`–`15` (env scopes, contexts, secrets, and the foundations capstone) live in `day-02/workflows/` and are taught at the *start* of Day 2. [day-01/README.md](day-01/README.md) section 8 is a bridge that links across to them — it deliberately does not duplicate that teaching content. Do not "restore" those sections to Day 1.
+Day 1 (§1–7) and Day 2 (§8–15, through status functions) are written in the README. Day 3 (job outputs onward, files `20`–`34`) has its workflow files built but no teaching script yet.
 
 ## Conventions for workflow demo files
 
@@ -51,7 +51,7 @@ python -c "import glob,yaml; [yaml.safe_load(open(f,encoding='utf-8')) or print(
 - `cache-dependency-path: 'sample-app/package-lock.json'` — for `uses:` steps, always relative to repo root
 - `paths: ['sample-app/**']` in trigger filters
 
-That `run:` vs `uses:` path asymmetry is itself a taught lesson in [day-01/README.md](day-01/README.md#10--hands-on-capstone-your-first-ci-pipeline) — keep both spellings rather than "simplifying" one away.
+That `run:` vs `uses:` path asymmetry is itself a taught lesson in [README.md](README.md#11---your-first-ci-pipeline-capstone) — keep both spellings rather than "simplifying" one away.
 
 ## sample-app commands
 

@@ -26,7 +26,7 @@ name: 17 - Needs (Job Dependencies)
 on: workflow_dispatch
 
 jobs:
-  build:
+  build1:
     runs-on: ubuntu-latest
     steps:
       - name: Build
@@ -36,16 +36,21 @@ jobs:
 
   # Both of these wait for `build`, then run in parallel with each other.
   test:
-    needs: build                 # single dependency
+    needs: build1                 # single dependency
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Testing — build already finished before I started."
+      - run: |
+          echo "Testing — build already finished before I started."
+          sleep 10
 
   lint:
-    needs: build
+    needs: build1
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Linting — I run at the same time as test, not after it."
+      - run: |
+          echo "Linting — I run at the same time as test, not after it."
+          sleep 4
+          exit 1
 
   # Fan-in: waits for BOTH. Note the list syntax.
   deploy:
@@ -58,6 +63,14 @@ jobs:
           # `needs.<job>.result` is one of: success, failure, cancelled, skipped
           echo "test result: ${{ needs.test.result }}"
           echo "lint result: ${{ needs.lint.result }}"
+          echo "lint result: ${{ needs.test.outputs }}"
+
+
+      # Dump the ENTIRE needs context as JSON — great for debugging/learning
+      - name: Dump full needs context
+        env:
+          NEEDS_DATA: ${{ toJSON(needs) }}
+        run: echo "$NEEDS_DATA"
 
       # TRY THIS DURING THE DEMO:
       # Add `exit 1` to the `lint` job above and re-run. Watch `deploy` turn

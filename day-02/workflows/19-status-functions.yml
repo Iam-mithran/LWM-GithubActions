@@ -28,36 +28,34 @@ name: 19 - Status Functions
 on: workflow_dispatch
 
 jobs:
-  build:
+  job1:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Building..."
-      - name: Fail on purpose
-        run: exit 1        # <- comment this out and re-run to see the mirror image
 
-  on-success:
-    needs: build
+  job2:
+    needs: job1
     # No `if:` at all, so the implicit success() applies -> SKIPPED.
     runs-on: ubuntu-latest
     steps:
       - run: echo "✅ Everything passed. (You only see this when build is green.)"
 
-  on-failure:
-    needs: build
+  job3:
+    needs: job1
     if: failure()          # only when something upstream failed
     runs-on: ubuntu-latest
     steps:
       - run: echo "❌ The build failed — this is where you'd send a Slack alert."
 
-  on-cancelled:
-    needs: build
+  job4:
+    needs: job1
     if: cancelled()        # only when a human hit Cancel, or concurrency killed it
     runs-on: ubuntu-latest
     steps:
       - run: echo "🚫 Run was cancelled."
 
-  always-runs:
-    needs: build
+  job5:
+    needs: job1
     if: always()           # green, red, or cancelled — this ALWAYS executes
     runs-on: ubuntu-latest
     steps:
@@ -68,8 +66,8 @@ jobs:
 
   # Combining a status function with your own condition is the realistic case:
   # "alert, but only for the main branch".
-  alert-on-main-failure:
-    needs: build
+  job6:
+    needs: job1
     if: failure() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
